@@ -1,10 +1,53 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+final class ApplicationLifecycleCoordinator {
+    private var openMainWindow: (() -> Void)?
+    private var resumeAfterSystemWake: (() -> Void)?
+    private var shutdown: (() -> Void)?
+
+    func configure(
+        openMainWindow: @escaping () -> Void,
+        resumeAfterSystemWake: @escaping () -> Void,
+        shutdown: @escaping () -> Void
+    ) {
+        self.openMainWindow = openMainWindow
+        self.resumeAfterSystemWake = resumeAfterSystemWake
+        self.shutdown = shutdown
+    }
+
+    @discardableResult
+    func reopenMainWindowIfNeeded(hasVisibleWindows: Bool) -> Bool {
+        guard !hasVisibleWindows, let openMainWindow else {
+            return false
+        }
+        openMainWindow()
+        return true
+    }
+
+    func systemDidWake() {
+        resumeAfterSystemWake?()
+    }
+
+    func applicationWillTerminate() {
+        shutdown?()
+    }
+}
+
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    let lifecycleCoordinator = ApplicationLifecycleCoordinator()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         FontRegistry.registerBundledFonts()
         NSApp.setActivationPolicy(.regular)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceDidWake(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
         if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "png"),
            let icon = NSImage(contentsOf: iconURL) {
             NSApp.applicationIconImage = icon
@@ -17,6 +60,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidUpdate(_ notification: Notification) {
         ApplicationMenuStabilizer.normalize()
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        if lifecycleCoordinator.reopenMainWindowIfNeeded(
+            hasVisibleWindows: flag
+        ) {
+            sender.activate(ignoringOtherApps: true)
+        }
+        return true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        lifecycleCoordinator.applicationWillTerminate()
+    }
+
+    @objc
+    private func workspaceDidWake(_ notification: Notification) {
+        lifecycleCoordinator.systemDidWake()
     }
 }
 
@@ -83,13 +148,6 @@ struct AriaLaneApp: App {
                 .task {
                     await store.start()
                 }
-                .onReceive(
-                    NotificationCenter.default.publisher(
-                        for: NSApplication.willTerminateNotification
-                    )
-                ) { _ in
-                    store.shutdown()
-                }
         }
         .defaultSize(width: 1_120, height: 720)
         .windowToolbarStyle(.unifiedCompact(showsTitle: false))
@@ -121,6 +179,12 @@ struct AriaLaneApp: App {
                 downloadSpeed: store.globalStats.downloadSpeedValue,
                 isConnected: store.connectionState.isConnected
             )
+            .background {
+                ApplicationLifecycleBridge(
+                    appDelegate: appDelegate,
+                    store: store
+                )
+            }
         }
         .menuBarExtraStyle(.window)
 
@@ -139,6 +203,34 @@ struct AriaLaneApp: App {
 
     private var localizationLocale: Locale {
         Locale(identifier: preferences.appLanguage.resolved.rawValue)
+    }
+}
+
+private struct ApplicationLifecycleBridge: View {
+    @Environment(\.openWindow) private var openWindow
+
+    let appDelegate: AppDelegate
+    let store: DownloadStore
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onAppear {
+                appDelegate.lifecycleCoordinator.configure(
+                    openMainWindow: {
+                        openWindow(id: "main")
+                    },
+                    resumeAfterSystemWake: {
+                        Task {
+                            await store.resumeAfterSystemWake()
+                        }
+                    },
+                    shutdown: {
+                        store.shutdown()
+                    }
+                )
+            }
+            .accessibilityHidden(true)
     }
 }
 

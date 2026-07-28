@@ -310,6 +310,10 @@ final class DownloadStore: ObservableObject {
         )
     }
 
+    func resumeAfterSystemWake() async {
+        await reconnect()
+    }
+
     func runConnectionDiagnostics() async {
         guard let endpoint = preferences.endpointURL else {
             connectionDiagnosticState = .failed(message: L10n.string("RPC 地址无效"))
