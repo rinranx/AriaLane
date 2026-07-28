@@ -14,7 +14,7 @@ Current version: **1.0.0**
 
 Author: rinran ([a@rinran.me](mailto:a@rinran.me))
 
-![AriaLane main window](docs/images/main-window-en.jpg)
+![AriaLane main window](docs/images/main-window-en.png)
 
 ## Features
 
