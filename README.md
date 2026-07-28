@@ -13,7 +13,7 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 
 作者：rinran（[a@rinran.me](mailto:a@rinran.me)）
 
-![AriaLane 主界面](docs/images/main-window.png)
+![AriaLane 主界面](docs/images/main-window-zh.png)
 
 ## 功能
 
