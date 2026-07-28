@@ -1,5 +1,6 @@
 # AriaLane
 
+[![English](https://img.shields.io/badge/Language-English-2563eb.svg)](README_EN.md)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-5c6ac4.svg)](LICENSE)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111.svg)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-f05138.svg)
@@ -70,8 +71,9 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 ### 发布能力
 
 - arm64 与 x86_64 Universal Binary
-- Developer ID、Hardened Runtime、Apple 公证与票据装订
-- Sparkle 2 自动更新与 EdDSA 更新签名
+- ZIP 与拖放式 DMG 安装包
+- 可选 Developer ID、Hardened Runtime、Apple 公证与票据装订
+- 可选 Sparkle 2 自动更新与 EdDSA 更新签名
 - GitHub Actions 自动测试和正式 Release 流程
 
 ## 语言
@@ -79,7 +81,7 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 AriaLane 1.0.0 支持简体中文与英文，并可在 **设置 → 通用 → 语言** 中切换：
 
 - 默认跟随系统语言。
-- 系统首选语言为任意中文时显示中文。
+- 系统首选语言为任意中文（包括繁体中文）时显示中文。
 - 系统首选语言为英文时显示英文。
 - 系统首选语言既不是中文也不是英文时，回退显示英文。
 - 也可以手动固定为“简体中文”或 “English”。
@@ -100,6 +102,21 @@ AriaLane 1.0.0 支持简体中文与英文，并可在 **设置 → 通用 → �
 brew install aria2
 ```
 
+## 安装
+
+1. 从 [GitHub Releases](https://github.com/rinranx/AriaLane/releases) 下载
+   `AriaLane-1.0.0-macOS-universal.dmg`。
+2. 打开 DMG，把 **AriaLane** 拖入 **Applications**。
+3. 首次启动时，在 Finder 的“应用程序”中右键点按 AriaLane，选择
+   **打开 → 打开**。
+4. 如果 macOS 仍然阻止运行，请打开
+   **系统设置 → 隐私与安全性**，找到 AriaLane 的拦截提示并选择
+   **仍要打开**。
+
+当前 GitHub Release 使用 ad-hoc 签名，尚未经过 Apple Developer ID 签名与
+公证。请只从本仓库的 Release 页面下载，并可使用 Release 中的
+`SHA256SUMS.txt` 校验文件。确认来源可信后再绕过 Gatekeeper 提示。
+
 ## 构建与运行
 
 ```bash
@@ -115,12 +132,12 @@ brew install aria2
 # 运行测试
 ./script/test.sh
 
-# 生成 Universal Binary 压缩包
+# 生成 Universal Binary ZIP 与 DMG
 ./script/package_release.sh
 ```
 
-没有 Developer ID 证书时，打包脚本会使用 ad-hoc 签名，产物仅适合开发测试。
-面向普通用户的 GitHub Release 应使用正式签名和 Apple 公证。完整步骤见
+没有 Developer ID 证书时，打包脚本会使用 ad-hoc 签名，macOS 首次运行时
+需要按上面的步骤手动允许。完整签名与公证步骤见
 [发布指南](docs/RELEASING.md)。
 
 ## 使用远程 aria2

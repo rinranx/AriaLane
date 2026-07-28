@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+.swiftpm/
+dist/
+*.xcuserstate
+work/
+outputs/
+*.p12
+*.cer
+*.key
+*.pem
+appcast.xml
+old_updates/

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check repository for secrets
+        run: ./script/check_repository_secrets.sh
+
+      - name: Validate property list
+        run: plutil -lint Resources/Info.plist
+
+      - name: Build release configuration
+        run: >
+          swift build
+          --configuration release
+          --disable-sandbox
+          --disable-keychain
+          --only-use-versions-from-resolved-file
+
+      - name: Run tests
+        run: >
+          swift test
+          --disable-sandbox
+          --disable-keychain
+          --only-use-versions-from-resolved-file
