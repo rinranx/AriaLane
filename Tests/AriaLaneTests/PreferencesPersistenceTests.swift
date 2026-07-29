@@ -3,6 +3,37 @@ import XCTest
 @testable import AriaLane
 
 final class PreferencesPersistenceTests: XCTestCase {
+    @MainActor
+    func testCertificateVerificationIsDisabledByDefault() {
+        let suiteName = "CertificateVerificationDefaultsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let preferences = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+
+        XCTAssertEqual(
+            preferences.advancedConfiguration.checkCertificate,
+            .disabled
+        )
+        XCTAssertEqual(
+            preferences.aria2Configuration.globalOptions["check-certificate"],
+            "false"
+        )
+
+        preferences.advancedConfiguration.checkCertificate = .enabled
+        preferences.restoreRecommendedAria2Settings()
+
+        XCTAssertEqual(
+            preferences.advancedConfiguration.checkCertificate,
+            .disabled
+        )
+    }
+
     func testKeychainDeleteAcceptsMissingItem() {
         XCTAssertNoThrow(
             try KeychainStore.validateStatus(
