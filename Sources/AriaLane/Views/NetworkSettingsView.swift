@@ -24,6 +24,13 @@ struct NetworkSettingsPane: View {
                     value: $preferences.minSplitSizeMiB,
                     range: 1...1_024
                 )
+                NetworkIntegerRow(
+                    title: L10n.string("磁盘缓存"),
+                    unit: "MB",
+                    value: $preferences.diskCacheMiB,
+                    range: 0...4_096,
+                    step: 16
+                )
             }
 
             Section(L10n.string("超时与重试")) {
@@ -64,6 +71,14 @@ struct NetworkSettingsPane: View {
                     value: $preferences.btMaxPeers,
                     range: 0...500,
                     step: 5
+                )
+                NetworkIntegerRow(
+                    title: L10n.string("积极寻找节点阈值"),
+                    detail: L10n.string("低于该速度时继续寻找更多节点"),
+                    unit: "KB/s",
+                    value: $preferences.btRequestPeerSpeedLimitKiB,
+                    range: 0...1_048_576,
+                    step: 50
                 )
 
                 HStack(spacing: 12) {
