@@ -6,6 +6,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INFO_PLIST="$ROOT_DIR/Resources/Info.plist"
 VERSION="${VERSION:-$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST")}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST")}"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
+SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
+
+if [[ "${REQUIRE_SPARKLE_CONFIGURATION:-0}" == "1" ]] &&
+  [[ -z "$SPARKLE_FEED_URL" || -z "$SPARKLE_PUBLIC_ED_KEY" ]]; then
+  echo "error: this release requires SPARKLE_FEED_URL and SPARKLE_PUBLIC_ED_KEY" >&2
+  exit 1
+fi
 
 BUILD_ROOT="${BUILD_ROOT:-/private/tmp/AriaLaneSwiftRelease}"
 ARM_BUILD_ROOT="${BUILD_ROOT}-arm64"
@@ -130,8 +138,6 @@ chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP_BUNDLE/Contents/Info.plist"
 plutil -replace CFBundleVersion -string "$BUILD_NUMBER" "$APP_BUNDLE/Contents/Info.plist"
 
-SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
-SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
 if [[ -n "$SPARKLE_FEED_URL" || -n "$SPARKLE_PUBLIC_ED_KEY" ]]; then
   if [[ -z "$SPARKLE_FEED_URL" || -z "$SPARKLE_PUBLIC_ED_KEY" ]]; then
     echo "error: SPARKLE_FEED_URL and SPARKLE_PUBLIC_ED_KEY must be supplied together" >&2
