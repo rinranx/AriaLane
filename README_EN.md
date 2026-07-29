@@ -21,6 +21,8 @@ Author: rinran ([a@rinran.me](mailto:a@rinran.me))
 ### Download management
 
 - Add HTTP, HTTPS, FTP, SFTP, and magnet links
+- Extract and filter download links from one or more web pages, with optional
+  JavaScript rendering
 - Read download links from QR codes in image files or the photo library
 - Press `⌘⇧V` to prefill a task from the clipboard, or open the app from a
   browser with `arialane://add`
