@@ -52,6 +52,7 @@
 "RSS「{0}」已加入 {1} 个新下载" = "RSS \"{0}\" added {1} new downloads";
 "SSH 主机密钥摘要" = "SSH Host Key Fingerprint";
 "TLS 与 Cookie" = "TLS & Cookies";
+"HTTPS 证书校验已关闭；连接可能被冒充或篡改。" = "HTTPS certificate verification is disabled; connections may be impersonated or tampered with.";
 "Torrent 文件损坏或格式无效" = "Torrent file is corrupted or invalid";
 "Tracker、加密、偏好" = "Trackers, Encryption & Preferences";
 "Tracker、加密、元数据与来源选择偏好。" = "Preferences for trackers, encryption, metadata, and source selection.";
