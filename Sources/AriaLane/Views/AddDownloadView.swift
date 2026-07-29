@@ -6,6 +6,7 @@ struct AddDownloadView: View {
     @EnvironmentObject private var store: DownloadStore
     @StateObject private var form = AddDownloadFormState()
     @State private var isShowingQRCodeScanner = false
+    @State private var isShowingWebLinkExtractor = false
 
     let initialInput: String
     let startsScheduled: Bool
@@ -36,6 +37,7 @@ struct AddDownloadView: View {
                         form: form,
                         urlCount: parsed.urls.count,
                         isCompact: usesCompactPresentation,
+                        availableHeight: sheetSize.height,
                         chooseDirectory: chooseDirectory
                     )
                 }
@@ -55,7 +57,10 @@ struct AddDownloadView: View {
         .background(LaneColor.canvas)
         .interactiveDismissDisabled(form.isSubmitting)
         .sheet(isPresented: $isShowingQRCodeScanner) {
-            QRCodeScannerView(onScan: appendScannedURLs)
+            QRCodeScannerView(onScan: appendURLs)
+        }
+        .sheet(isPresented: $isShowingWebLinkExtractor) {
+            WebLinkExtractionView(onAdd: appendURLs)
         }
         .onAppear {
             form.prepareDefaults(
@@ -195,9 +200,24 @@ struct AddDownloadView: View {
                             : .secondary
                     )
 
-                if !usesCompactPresentation {
-                    Spacer()
+                Spacer(minLength: 8)
 
+                Button {
+                    isShowingWebLinkExtractor = true
+                } label: {
+                    Label(
+                        L10n.string("网页提取"),
+                        systemImage: "globe"
+                    )
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(LaneColor.accent)
+                .fixedSize()
+                .help(L10n.string("从一个或多个网页批量提取下载链接"))
+                .accessibilityLabel(L10n.string("网页提取"))
+
+                if !usesCompactPresentation {
                     Text(taskSummary)
                         .font(LaneFont.utility(9, weight: .regular))
                         .foregroundStyle(.tertiary)
@@ -301,7 +321,7 @@ struct AddDownloadView: View {
         }
     }
 
-    private func appendScannedURLs(_ urls: [String]) {
+    private func appendURLs(_ urls: [String]) {
         let existingURLs = Set(parsed.urls)
         let additions = urls.filter { !existingURLs.contains($0) }
         guard !additions.isEmpty else { return }
