@@ -6,6 +6,10 @@ struct SpeedSettingsPane: View {
 
     var body: some View {
         Form {
+            Section(L10n.string("一键性能方案")) {
+                PerformanceProfileCardsView()
+            }
+
             Section(L10n.string("当前流量")) {
                 HStack(spacing: 28) {
                     liveMetric(
