@@ -75,8 +75,8 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 - arm64 与 x86_64 Universal Binary
 - ZIP 与拖放式 DMG 安装包
 - 可选 Developer ID、Hardened Runtime、Apple 公证与票据装订
-- 可选 Sparkle 2 自动更新与 EdDSA 更新签名
-- GitHub Actions 自动测试和正式 Release 流程
+- Sparkle 2 应用内更新与 EdDSA 更新签名
+- GitHub Actions 自动测试和带 Sparkle 更新源的 Release 流程
 
 ## 语言
 
