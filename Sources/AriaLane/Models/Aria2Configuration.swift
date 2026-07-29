@@ -36,6 +36,7 @@ struct Aria2Configuration: Equatable, Sendable {
     var maxConnectionPerServer: Int
     var split: Int
     var minSplitSizeMiB: Int
+    var diskCacheMiB: Int
     var connectTimeoutSeconds: Int
     var timeoutSeconds: Int
     var maxTries: Int
@@ -52,6 +53,7 @@ struct Aria2Configuration: Equatable, Sendable {
     var enablePeerExchange: Bool
     var enableLocalPeerDiscovery: Bool
     var btMaxPeers: Int
+    var btRequestPeerSpeedLimitKiB: Int
     var listenPortStart: Int
     var listenPortEnd: Int
     var seedTimeMinutes: Int
@@ -65,10 +67,12 @@ struct Aria2Configuration: Equatable, Sendable {
             maxOverallUploadLimitKiB: 0,
             maxDownloadLimitKiB: 0,
             maxUploadLimitKiB: 0,
-            maxConcurrentDownloads: 5,
-            maxConnectionPerServer: 8,
-            split: 8,
-            minSplitSizeMiB: 10,
+            maxConcurrentDownloads: Aria2PerformanceProfile.maximumSpeed.maxConcurrentDownloads,
+            maxConnectionPerServer:
+                Aria2PerformanceProfile.maximumSpeed.maxConnectionPerServer,
+            split: Aria2PerformanceProfile.maximumSpeed.split,
+            minSplitSizeMiB: Aria2PerformanceProfile.maximumSpeed.minSplitSizeMiB,
+            diskCacheMiB: Aria2PerformanceProfile.maximumSpeed.diskCacheMiB,
             connectTimeoutSeconds: 30,
             timeoutSeconds: 60,
             maxTries: 5,
@@ -79,10 +83,14 @@ struct Aria2Configuration: Equatable, Sendable {
             autoFileRenaming: true,
             allowOverwrite: false,
             preserveRemoteTime: false,
-            enableDHT: true,
-            enablePeerExchange: true,
-            enableLocalPeerDiscovery: false,
-            btMaxPeers: 55,
+            enableDHT: Aria2PerformanceProfile.maximumSpeed.enableDHT,
+            enablePeerExchange:
+                Aria2PerformanceProfile.maximumSpeed.enablePeerExchange,
+            enableLocalPeerDiscovery:
+                Aria2PerformanceProfile.maximumSpeed.enableLocalPeerDiscovery,
+            btMaxPeers: Aria2PerformanceProfile.maximumSpeed.btMaxPeers,
+            btRequestPeerSpeedLimitKiB:
+                Aria2PerformanceProfile.maximumSpeed.btRequestPeerSpeedLimitKiB,
             listenPortStart: 6_881,
             listenPortEnd: 6_999,
             seedTimeMinutes: 0,
@@ -104,6 +112,7 @@ struct Aria2Configuration: Equatable, Sendable {
             "max-connection-per-server": String(Self.clamp(maxConnectionPerServer, to: 1...16)),
             "split": String(Self.clamp(split, to: 1...16)),
             "min-split-size": "\(Self.clamp(minSplitSizeMiB, to: 1...1_024))M",
+            "disk-cache": "\(Self.clamp(diskCacheMiB, to: 0...4_096))M",
             "connect-timeout": String(Self.clamp(connectTimeoutSeconds, to: 1...600)),
             "timeout": String(Self.clamp(timeoutSeconds, to: 1...600)),
             "max-tries": String(max(maxTries, 0)),
@@ -118,6 +127,8 @@ struct Aria2Configuration: Equatable, Sendable {
             "enable-peer-exchange": Self.boolOption(enablePeerExchange),
             "bt-enable-lpd": Self.boolOption(enableLocalPeerDiscovery),
             "bt-max-peers": String(max(btMaxPeers, 0)),
+            "bt-request-peer-speed-limit":
+                Self.speedOption(btRequestPeerSpeedLimitKiB),
             "listen-port": portStart == portEnd ? String(portStart) : "\(portStart)-\(portEnd)",
             "seed-time": String(max(seedTimeMinutes, 0)),
             "seed-ratio": String(
