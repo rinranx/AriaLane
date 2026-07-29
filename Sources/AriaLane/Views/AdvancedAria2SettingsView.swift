@@ -59,6 +59,14 @@ struct AdvancedAria2SettingsPane: View {
                     L10n.string("校验证书"),
                     selection: $preferences.advancedConfiguration.checkCertificate
                 )
+                if preferences.advancedConfiguration.checkCertificate == .disabled {
+                    Label(
+                        L10n.string("HTTPS 证书校验已关闭；连接可能被冒充或篡改。"),
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(LaneColor.amber)
+                }
                 settingsField(
                     L10n.string("CA 证书"),
                     placeholder: "/path/to/ca.pem",
