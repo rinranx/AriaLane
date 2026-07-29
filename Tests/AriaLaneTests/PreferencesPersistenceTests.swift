@@ -4,6 +4,117 @@ import XCTest
 
 final class PreferencesPersistenceTests: XCTestCase {
     @MainActor
+    func testMaximumSpeedProfileIsTheFreshInstallDefault() {
+        let suiteName = "MaximumSpeedDefaultsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let preferences = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+
+        XCTAssertEqual(
+            preferences.activePerformanceProfileID,
+            Aria2PerformanceProfile.maximumSpeedID
+        )
+        XCTAssertEqual(preferences.maxConcurrentDownloads, 8)
+        XCTAssertEqual(preferences.maxConnectionPerServer, 16)
+        XCTAssertEqual(preferences.split, 16)
+        XCTAssertEqual(preferences.minSplitSizeMiB, 4)
+        XCTAssertEqual(preferences.diskCacheMiB, 128)
+        XCTAssertEqual(preferences.btMaxPeers, 128)
+        XCTAssertEqual(preferences.btRequestPeerSpeedLimitKiB, 5_120)
+        XCTAssertTrue(preferences.enableLocalPeerDiscovery)
+        XCTAssertEqual(preferences.advancedConfiguration.enableDHT6, .enabled)
+        XCTAssertNil(preferences.aria2Configuration.globalOptions["uri-selector"])
+    }
+
+    @MainActor
+    func testCompatibilityProfilePreservesUnrelatedAdvancedSettings() {
+        let suiteName = "CompatibilityProfileTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let preferences = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+        preferences.downloadDirectory = "/tmp/profile-downloads"
+        preferences.advancedConfiguration.checkCertificate = .enabled
+        preferences.advancedConfiguration.metalinkLocation = "JP"
+
+        preferences.applyPerformanceProfile(.compatibility)
+
+        XCTAssertEqual(
+            preferences.activePerformanceProfileID,
+            Aria2PerformanceProfile.compatibilityID
+        )
+        XCTAssertEqual(preferences.maxConcurrentDownloads, 3)
+        XCTAssertEqual(preferences.maxConnectionPerServer, 4)
+        XCTAssertEqual(preferences.split, 4)
+        XCTAssertEqual(preferences.minSplitSizeMiB, 10)
+        XCTAssertEqual(preferences.diskCacheMiB, 32)
+        XCTAssertEqual(preferences.btMaxPeers, 55)
+        XCTAssertEqual(preferences.btRequestPeerSpeedLimitKiB, 50)
+        XCTAssertFalse(preferences.enableLocalPeerDiscovery)
+        XCTAssertEqual(preferences.advancedConfiguration.enableDHT6, .disabled)
+        XCTAssertEqual(
+            preferences.advancedConfiguration.checkCertificate,
+            .enabled
+        )
+        XCTAssertEqual(preferences.advancedConfiguration.metalinkLocation, "JP")
+        XCTAssertEqual(preferences.downloadDirectory, "/tmp/profile-downloads")
+        XCTAssertNil(preferences.aria2Configuration.globalOptions["uri-selector"])
+
+        preferences.split = 5
+
+        XCTAssertNil(preferences.activePerformanceProfileID)
+    }
+
+    @MainActor
+    func testCustomPerformanceProfilePersistsAndCanBeRemoved() throws {
+        let suiteName = "CustomPerformanceProfileTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let preferences = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+        var draft = preferences.capturedPerformanceProfile(name: "家庭宽带")
+        draft.maxConcurrentDownloads = 6
+        draft.diskCacheMiB = 96
+        let saved = preferences.saveCustomPerformanceProfile(draft)
+        preferences.applyPerformanceProfile(saved)
+
+        let relaunched = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+        let persisted = try XCTUnwrap(
+            relaunched.customPerformanceProfiles.first {
+                $0.id == saved.id
+            }
+        )
+        XCTAssertEqual(persisted.name, "家庭宽带")
+        XCTAssertEqual(persisted.maxConcurrentDownloads, 6)
+        XCTAssertEqual(persisted.diskCacheMiB, 96)
+        XCTAssertEqual(relaunched.activePerformanceProfileID, saved.id)
+
+        relaunched.removeCustomPerformanceProfile(id: saved.id)
+
+        XCTAssertTrue(relaunched.customPerformanceProfiles.isEmpty)
+        XCTAssertNil(relaunched.activePerformanceProfileID)
+    }
+
+    @MainActor
     func testCertificateVerificationIsDisabledByDefault() {
         let suiteName = "CertificateVerificationDefaultsTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
