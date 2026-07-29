@@ -176,6 +176,7 @@ struct Aria2AdvancedOptions: Codable, Equatable, Sendable {
     static var defaultGlobalConfiguration: Aria2AdvancedOptions {
         var configuration = Aria2AdvancedOptions()
         configuration.checkCertificate = .disabled
+        configuration.enableDHT6 = .enabled
         return configuration
     }
 
