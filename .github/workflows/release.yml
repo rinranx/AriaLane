@@ -15,9 +15,12 @@ concurrency:
 
 jobs:
   release:
-    name: Build and publish ad-hoc release
+    name: Build and publish Sparkle-enabled release
     runs-on: macos-15
     timeout-minutes: 45
+    env:
+      SPARKLE_FEED_URL: >-
+        https://github.com/${{ github.repository }}/releases/latest/download/appcast.xml
 
     steps:
       - name: Check out repository
@@ -42,10 +45,80 @@ jobs:
           --disable-keychain
           --only-use-versions-from-resolved-file
 
-      - name: Build ad-hoc Universal ZIP and DMG
+      - name: Prepare Sparkle signing key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$SPARKLE_PRIVATE_KEY" ]]; then
+            echo "::error title=Missing Sparkle private key::Add SPARKLE_PRIVATE_KEY as a repository Actions secret."
+            exit 1
+          fi
+          if [[ -z "$SPARKLE_PUBLIC_ED_KEY" ]]; then
+            echo "::error title=Missing Sparkle public key::Add SPARKLE_PUBLIC_ED_KEY as a repository Actions variable."
+            exit 1
+          fi
+
+          umask 077
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle-private-key"
+
+      - name: Build Sparkle-enabled ad-hoc Universal ZIP and DMG
         env:
           CODESIGN_IDENTITY: "-"
+          REQUIRE_SPARKLE_CONFIGURATION: "1"
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
         run: ./script/package_release.sh
+
+      - name: Generate signed Sparkle appcast
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          tag="${{ steps.version.outputs.tag }}"
+          appcast_input="$RUNNER_TEMP/appcast-input"
+          mkdir -p "$appcast_input"
+          cp \
+            "outputs/AriaLane-$version-macOS-universal.zip" \
+            "$appcast_input/"
+
+          DOWNLOAD_URL_PREFIX="https://github.com/${{ github.repository }}/releases/download/$tag" \
+          SPARKLE_PRIVATE_KEY_FILE="$RUNNER_TEMP/sparkle-private-key" \
+            ./script/generate_appcast.sh "$appcast_input"
+          cp "$appcast_input/appcast.xml" outputs/appcast.xml
+
+      - name: Verify Sparkle release metadata
+        env:
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          tag="${{ steps.version.outputs.tag }}"
+          archive="outputs/AriaLane-$version-macOS-universal.zip"
+          packaged_plist="$RUNNER_TEMP/AriaLane-Info.plist"
+          unzip -p "$archive" "AriaLane.app/Contents/Info.plist" > "$packaged_plist"
+
+          embedded_feed="$(/usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$packaged_plist")"
+          embedded_key="$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$packaged_plist")"
+          verify_before_extraction="$(
+            /usr/libexec/PlistBuddy \
+              -c "Print :SUVerifyUpdateBeforeExtraction" \
+              "$packaged_plist"
+          )"
+
+          [[ "$embedded_feed" == "$SPARKLE_FEED_URL" ]]
+          [[ "$embedded_key" == "$SPARKLE_PUBLIC_ED_KEY" ]]
+          [[ "$verify_before_extraction" == "true" ]]
+          grep -q 'sparkle:edSignature=' outputs/appcast.xml
+          grep -Fq \
+            "releases/download/$tag/AriaLane-$version-macOS-universal.zip" \
+            outputs/appcast.xml
+
+      - name: Remove temporary Sparkle signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sparkle-private-key"
 
       - name: Generate checksums
         shell: bash
@@ -57,6 +130,7 @@ jobs:
             shasum -a 256 \
               "AriaLane-$version-macOS-universal.zip" \
               "AriaLane-$version-macOS-universal.dmg" \
+              "appcast.xml" \
               > SHA256SUMS.txt
           )
 
@@ -72,6 +146,7 @@ jobs:
           assets=(
             "outputs/AriaLane-$version-macOS-universal.dmg"
             "outputs/AriaLane-$version-macOS-universal.zip"
+            "outputs/appcast.xml"
             "outputs/SHA256SUMS.txt"
           )
 
@@ -85,6 +160,9 @@ jobs:
             "1. 下载 DMG 并把 AriaLane 拖入 Applications。" \
             "2. 首次启动时，在 Finder 中右键点按 AriaLane，选择“打开”。" \
             "3. 如果仍被阻止，请前往“系统设置 → 隐私与安全性”，选择“仍要打开”。" \
+            "" \
+            "这个安装包已接入 Sparkle，并使用 Ed25519 签名验证后续更新。" \
+            "此前下载过未配置更新源的 1.0.0 用户，需要手动重新下载安装一次。" \
             "" \
             "请只从本仓库下载，并使用 SHA256SUMS.txt 校验安装包。" \
             > "$notes"
