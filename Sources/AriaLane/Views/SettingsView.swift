@@ -495,7 +495,11 @@ private struct GeneralSettingsPane: View {
                     )
 
                     HStack {
-                        Text(L10n.string("更新包会验证 Developer ID 与 Ed25519 签名。"))
+                        Text(
+                            L10n.string(
+                                "更新包会验证 Sparkle Ed25519 签名；正式签名版本还会验证 Developer ID。"
+                            )
+                        )
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
