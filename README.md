@@ -20,6 +20,7 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 ### 下载管理
 
 - 添加 HTTP、HTTPS、FTP、SFTP、magnet 链接
+- 从一个或多个网页提取下载链接，支持结果筛选与可选 JavaScript 渲染
 - 从图片文件或照片图库识别二维码中的下载链接
 - `⌘⇧V` 从剪贴板预填任务，或通过 `arialane://add` 从浏览器唤起
 - 一次拖入多个链接、`.torrent`、`.metalink` 或 `.meta4`，导入文件会排队逐个选择
