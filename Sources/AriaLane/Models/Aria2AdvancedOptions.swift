@@ -173,6 +173,12 @@ struct Aria2AdvancedOptions: Codable, Equatable, Sendable {
 
     var customOptionsText = ""
 
+    static var defaultGlobalConfiguration: Aria2AdvancedOptions {
+        var configuration = Aria2AdvancedOptions()
+        configuration.checkCertificate = .disabled
+        return configuration
+    }
+
     var isDefault: Bool {
         self == Aria2AdvancedOptions()
     }
