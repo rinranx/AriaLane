@@ -8,9 +8,9 @@ struct OrganizedTasksView: View {
 
     let selection: SidebarSelection
     @Binding var selectedEntityIDs: Set<UUID>
+    @Binding var searchText: String
     let onEditSelection: () -> Void
 
-    @SceneStorage("organizedTaskSearchText") private var searchText = ""
     @SceneStorage("organizedTaskSortField")
     private var sortFieldRaw = TaskEntitySortField.addedDate.rawValue
     @SceneStorage("organizedTaskSortDirection")
@@ -78,11 +78,6 @@ struct OrganizedTasksView: View {
             }
         }
         .background(LaneColor.canvas)
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: L10n.string("搜索名称、来源、类型或标签")
-        )
         .sheet(isPresented: historyRemovalBinding) {
             if let entry = pendingHistoryRemoval {
                 LocalFileDeletionConfirmationView(

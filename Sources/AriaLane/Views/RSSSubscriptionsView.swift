@@ -3,7 +3,7 @@ import SwiftUI
 
 struct RSSSubscriptionsView: View {
     @EnvironmentObject private var store: DownloadStore
-    @SceneStorage("rssSearchText") private var searchText = ""
+    @Binding var searchText: String
     @State private var isShowingNewSubscription = false
     @State private var editingSubscription: RSSSubscription?
 
@@ -91,11 +91,6 @@ struct RSSSubscriptionsView: View {
             }
         }
         .background(LaneColor.canvas)
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: L10n.string("搜索 RSS 订阅")
-        )
     }
 
     private var header: some View {

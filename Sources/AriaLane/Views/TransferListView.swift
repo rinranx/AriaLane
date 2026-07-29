@@ -5,9 +5,9 @@ struct TransferListView: View {
 
     let filter: TransferFilter
     @Binding var selectedGIDs: Set<String>
+    @Binding var searchText: String
     let onAdd: () -> Void
 
-    @SceneStorage("transferSearchText") private var searchText = ""
     @SceneStorage("transferSortField") private var sortFieldRaw = TransferSortField.queue.rawValue
     @SceneStorage("transferSortDirection")
     private var sortDirectionRaw = TransferSortDirection.ascending.rawValue
@@ -146,11 +146,6 @@ struct TransferListView: View {
             }
         }
         .background(LaneColor.canvas)
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: L10n.string("搜索名称、地址或路径")
-        )
         .confirmationDialog(
             L10n.string("移除 \(selectedItems.count) 个任务？"),
             isPresented: $isConfirmingRemoval,

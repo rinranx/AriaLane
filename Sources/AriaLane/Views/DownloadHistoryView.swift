@@ -4,8 +4,8 @@ import SwiftUI
 struct DownloadHistoryView: View {
     @EnvironmentObject private var store: DownloadStore
     @EnvironmentObject private var organization: TaskOrganizationStore
+    @Binding var searchText: String
 
-    @SceneStorage("historySearchText") private var searchText = ""
     @SceneStorage("historySort") private var sortRaw = DownloadHistorySort.newest.rawValue
     @AppStorage("taskListDisplayMode") private var displayModeRaw = TaskListDisplayMode.card.rawValue
     @StateObject private var viewState = DownloadHistoryViewState()
@@ -102,11 +102,6 @@ struct DownloadHistoryView: View {
             }
         }
         .background(LaneColor.canvas)
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: L10n.string("搜索下载历史")
-        )
         .sheet(isPresented: removalBinding) {
             LocalFileDeletionConfirmationView(
                 title: removalTitle,

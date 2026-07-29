@@ -11,6 +11,12 @@ struct ContentView: View {
     @SceneStorage("selectedFilter")
     private var selectedSidebarRaw = SidebarSelection.filter(.all).storageValue
     @SceneStorage("selectedTransferGID") private var selectedGID: String?
+    @SceneStorage("transferSearchText") private var transferSearchText = ""
+    @SceneStorage("organizedTaskSearchText") private var organizedTaskSearchText = ""
+    @SceneStorage("historySearchText") private var historySearchText = ""
+    @SceneStorage("pendingDownloadSearchText") private var pendingDownloadSearchText = ""
+    @SceneStorage("scheduleSearchText") private var scheduleSearchText = ""
+    @SceneStorage("rssSearchText") private var rssSearchText = ""
     @State private var isShowingComposer = false
     @SceneStorage("sidebarWidth") private var sidebarWidth = 200.0
     @State private var isSidebarCollapsed = false
@@ -61,17 +67,18 @@ struct ContentView: View {
                     } else if case .smartFolder = sidebarSelection {
                         organizedTasks
                     } else if selectedFilter == .history {
-                        DownloadHistoryView()
+                        DownloadHistoryView(searchText: $historySearchText)
                     } else if selectedFilter == .pending {
-                        PendingDownloadsView()
+                        PendingDownloadsView(searchText: $pendingDownloadSearchText)
                     } else if selectedFilter == .scheduled {
-                        ScheduledDownloadsView()
+                        ScheduledDownloadsView(searchText: $scheduleSearchText)
                     } else if selectedFilter == .rss {
-                        RSSSubscriptionsView()
+                        RSSSubscriptionsView(searchText: $rssSearchText)
                     } else {
                         TransferListView(
                             filter: selectedFilter,
                             selectedGIDs: $viewState.selectedGIDs,
+                            searchText: $transferSearchText,
                             onAdd: { openComposer() }
                         )
                     }
@@ -109,6 +116,11 @@ struct ContentView: View {
 
     private var presentedView: some View {
         layoutView
+        .searchable(
+            text: activeSearchText,
+            placement: .toolbar,
+            prompt: Text(activeSearchPrompt)
+        )
         .toolbar {
             mainToolbar
         }
@@ -332,6 +344,7 @@ struct ContentView: View {
         OrganizedTasksView(
             selection: sidebarSelection,
             selectedEntityIDs: $viewState.selectedEntityIDs,
+            searchText: $organizedTaskSearchText,
             onEditSelection: {
                 if case .smartFolder = sidebarSelection {
                     isEditingSelectedSmartFolder = true
@@ -346,6 +359,50 @@ struct ContentView: View {
 
     private var selectedFilter: TransferFilter {
         sidebarSelection.fixedFilter ?? .all
+    }
+
+    private var activeSearchText: Binding<String> {
+        if case .tag = sidebarSelection {
+            return $organizedTaskSearchText
+        }
+        if case .smartFolder = sidebarSelection {
+            return $organizedTaskSearchText
+        }
+
+        switch selectedFilter {
+        case .history:
+            return $historySearchText
+        case .pending:
+            return $pendingDownloadSearchText
+        case .scheduled:
+            return $scheduleSearchText
+        case .rss:
+            return $rssSearchText
+        default:
+            return $transferSearchText
+        }
+    }
+
+    private var activeSearchPrompt: String {
+        if case .tag = sidebarSelection {
+            return L10n.string("搜索名称、来源、类型或标签")
+        }
+        if case .smartFolder = sidebarSelection {
+            return L10n.string("搜索名称、来源、类型或标签")
+        }
+
+        switch selectedFilter {
+        case .history:
+            return L10n.string("搜索下载历史")
+        case .pending:
+            return L10n.string("搜索待发送任务")
+        case .scheduled:
+            return L10n.string("搜索计划任务")
+        case .rss:
+            return L10n.string("搜索 RSS 订阅")
+        default:
+            return L10n.string("搜索名称、地址或路径")
+        }
     }
 
     private var sidebarSelectionBinding: Binding<SidebarSelection> {

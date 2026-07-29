@@ -3,7 +3,7 @@ import SwiftUI
 struct ScheduledDownloadsView: View {
     @Environment(\.laneWindowContentSize) private var windowContentSize
     @EnvironmentObject private var store: DownloadStore
-    @SceneStorage("scheduleSearchText") private var searchText = ""
+    @Binding var searchText: String
     @State private var editingEntry: ScheduledDownload?
     @State private var isShowingNewSchedule = false
 
@@ -58,11 +58,6 @@ struct ScheduledDownloadsView: View {
             }
         }
         .background(LaneColor.canvas)
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: L10n.string("搜索计划任务")
-        )
         .sheet(item: $editingEntry) { entry in
             EditScheduledDownloadView(entry: entry)
         }

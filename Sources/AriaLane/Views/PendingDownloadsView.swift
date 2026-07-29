@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PendingDownloadsView: View {
     @EnvironmentObject private var store: DownloadStore
-    @SceneStorage("pendingDownloadSearchText") private var searchText = ""
+    @Binding var searchText: String
 
     private var visibleEntries: [PendingDownload] {
         store.pendingDownloads.filter { $0.matches(searchText) }
@@ -68,11 +68,6 @@ struct PendingDownloadsView: View {
             }
         }
         .background(LaneColor.canvas)
-        .searchable(
-            text: $searchText,
-            placement: .toolbar,
-            prompt: L10n.string("搜索待发送任务")
-        )
     }
 
     private var header: some View {
