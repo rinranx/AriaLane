@@ -9,9 +9,17 @@ final class Aria2ConfigurationTests: XCTestCase {
 
         XCTAssertEqual(configuration.globalOptions["dir"], "/Users/example/Downloads")
         XCTAssertEqual(configuration.globalOptions["max-overall-download-limit"], "0")
-        XCTAssertEqual(configuration.globalOptions["max-concurrent-downloads"], "5")
-        XCTAssertEqual(configuration.globalOptions["max-connection-per-server"], "8")
-        XCTAssertEqual(configuration.globalOptions["split"], "8")
+        XCTAssertEqual(configuration.globalOptions["max-concurrent-downloads"], "8")
+        XCTAssertEqual(configuration.globalOptions["max-connection-per-server"], "16")
+        XCTAssertEqual(configuration.globalOptions["split"], "16")
+        XCTAssertEqual(configuration.globalOptions["min-split-size"], "4M")
+        XCTAssertEqual(configuration.globalOptions["disk-cache"], "128M")
+        XCTAssertEqual(
+            configuration.globalOptions["bt-request-peer-speed-limit"],
+            "5120K"
+        )
+        XCTAssertEqual(configuration.globalOptions["bt-enable-lpd"], "true")
+        XCTAssertNil(configuration.globalOptions["uri-selector"])
         XCTAssertEqual(configuration.globalOptions["continue"], "true")
         XCTAssertEqual(configuration.globalOptions["file-allocation"], "trunc")
         XCTAssertEqual(configuration.globalOptions["listen-port"], "6881-6999")
