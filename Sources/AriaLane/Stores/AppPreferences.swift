@@ -51,6 +51,7 @@ final class AppPreferences: ObservableObject {
         static let maxConnectionPerServer = "maxConnectionPerServer"
         static let split = "split"
         static let minSplitSizeMiB = "minSplitSizeMiB"
+        static let diskCacheMiB = "diskCacheMiB"
         static let connectTimeoutSeconds = "connectTimeoutSeconds"
         static let timeoutSeconds = "timeoutSeconds"
         static let maxTries = "maxTries"
@@ -67,11 +68,14 @@ final class AppPreferences: ObservableObject {
         static let enablePeerExchange = "enablePeerExchange"
         static let enableLocalPeerDiscovery = "enableLocalPeerDiscovery"
         static let btMaxPeers = "btMaxPeers"
+        static let btRequestPeerSpeedLimitKiB = "btRequestPeerSpeedLimitKiB"
         static let listenPortStart = "listenPortStart"
         static let listenPortEnd = "listenPortEnd"
         static let seedTimeMinutes = "seedTimeMinutes"
         static let seedRatio = "seedRatio"
         static let advancedConfiguration = "aria2AdvancedConfiguration"
+        static let customPerformanceProfiles = "aria2CustomPerformanceProfiles"
+        static let selectedPerformanceProfileID = "selectedPerformanceProfileID"
         static let didMigrateMetalinkLocaleAutofill =
             "didMigrateMetalinkLocaleAutofill"
     }
@@ -196,6 +200,10 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(minSplitSizeMiB, forKey: Key.minSplitSizeMiB) }
     }
 
+    @Published var diskCacheMiB: Int {
+        didSet { defaults.set(diskCacheMiB, forKey: Key.diskCacheMiB) }
+    }
+
     @Published var connectTimeoutSeconds: Int {
         didSet { defaults.set(connectTimeoutSeconds, forKey: Key.connectTimeoutSeconds) }
     }
@@ -252,6 +260,15 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(btMaxPeers, forKey: Key.btMaxPeers) }
     }
 
+    @Published var btRequestPeerSpeedLimitKiB: Int {
+        didSet {
+            defaults.set(
+                btRequestPeerSpeedLimitKiB,
+                forKey: Key.btRequestPeerSpeedLimitKiB
+            )
+        }
+    }
+
     @Published var listenPortStart: Int {
         didSet { defaults.set(listenPortStart, forKey: Key.listenPortStart) }
     }
@@ -289,6 +306,17 @@ final class AppPreferences: ObservableObject {
     @Published private(set) var serverProfiles: [Aria2ServerProfile] = []
     @Published private(set) var activeServerProfileID: UUID?
     @Published private(set) var keychainPersistenceIssue: KeychainPersistenceIssue?
+    @Published private(set) var customPerformanceProfiles: [Aria2PerformanceProfile] = [] {
+        didSet { persistPerformanceProfiles() }
+    }
+    @Published private(set) var selectedPerformanceProfileID: UUID? {
+        didSet {
+            defaults.set(
+                selectedPerformanceProfileID?.uuidString,
+                forKey: Key.selectedPerformanceProfileID
+            )
+        }
+    }
 
     @Published var rpcSecret: String {
         didSet {
@@ -337,6 +365,7 @@ final class AppPreferences: ObservableObject {
             Key.maxConnectionPerServer: recommended.maxConnectionPerServer,
             Key.split: recommended.split,
             Key.minSplitSizeMiB: recommended.minSplitSizeMiB,
+            Key.diskCacheMiB: recommended.diskCacheMiB,
             Key.connectTimeoutSeconds: recommended.connectTimeoutSeconds,
             Key.timeoutSeconds: recommended.timeoutSeconds,
             Key.maxTries: recommended.maxTries,
@@ -351,10 +380,14 @@ final class AppPreferences: ObservableObject {
             Key.enablePeerExchange: recommended.enablePeerExchange,
             Key.enableLocalPeerDiscovery: recommended.enableLocalPeerDiscovery,
             Key.btMaxPeers: recommended.btMaxPeers,
+            Key.btRequestPeerSpeedLimitKiB:
+                recommended.btRequestPeerSpeedLimitKiB,
             Key.listenPortStart: recommended.listenPortStart,
             Key.listenPortEnd: recommended.listenPortEnd,
             Key.seedTimeMinutes: recommended.seedTimeMinutes,
-            Key.seedRatio: recommended.seedRatio
+            Key.seedRatio: recommended.seedRatio,
+            Key.selectedPerformanceProfileID:
+                Aria2PerformanceProfile.maximumSpeedID.uuidString
         ])
 
         endpoint = defaults.string(forKey: Key.endpoint) ?? Self.defaultEndpoint
@@ -399,6 +432,7 @@ final class AppPreferences: ObservableObject {
         maxConnectionPerServer = defaults.integer(forKey: Key.maxConnectionPerServer)
         split = defaults.integer(forKey: Key.split)
         minSplitSizeMiB = defaults.integer(forKey: Key.minSplitSizeMiB)
+        diskCacheMiB = defaults.integer(forKey: Key.diskCacheMiB)
         connectTimeoutSeconds = defaults.integer(forKey: Key.connectTimeoutSeconds)
         timeoutSeconds = defaults.integer(forKey: Key.timeoutSeconds)
         maxTries = defaults.integer(forKey: Key.maxTries)
@@ -417,6 +451,10 @@ final class AppPreferences: ObservableObject {
         enablePeerExchange = defaults.bool(forKey: Key.enablePeerExchange)
         enableLocalPeerDiscovery = defaults.bool(forKey: Key.enableLocalPeerDiscovery)
         btMaxPeers = defaults.integer(forKey: Key.btMaxPeers)
+        btRequestPeerSpeedLimitKiB = max(
+            defaults.integer(forKey: Key.btRequestPeerSpeedLimitKiB),
+            0
+        )
         listenPortStart = defaults.integer(forKey: Key.listenPortStart)
         listenPortEnd = defaults.integer(forKey: Key.listenPortEnd)
         seedTimeMinutes = defaults.integer(forKey: Key.seedTimeMinutes)
@@ -443,6 +481,16 @@ final class AppPreferences: ObservableObject {
         }
         defaults.set(true, forKey: Key.didMigrateMetalinkLocaleAutofill)
         advancedConfiguration = storedAdvancedConfiguration
+        customPerformanceProfiles = defaults.data(
+            forKey: Key.customPerformanceProfiles
+        ).flatMap {
+            try? JSONDecoder().decode([Aria2PerformanceProfile].self, from: $0)
+        }?.filter {
+            $0.kind == .custom && !$0.name.trimmed.isEmpty
+        } ?? []
+        selectedPerformanceProfileID = defaults.string(
+            forKey: Key.selectedPerformanceProfileID
+        ).flatMap(UUID.init(uuidString:))
         let storedProxyPassword = keychain.read(
             service: KeychainStore.service,
             account: "aria2-proxy-password"
@@ -639,6 +687,7 @@ final class AppPreferences: ObservableObject {
             maxConnectionPerServer: maxConnectionPerServer,
             split: split,
             minSplitSizeMiB: minSplitSizeMiB,
+            diskCacheMiB: diskCacheMiB,
             connectTimeoutSeconds: connectTimeoutSeconds,
             timeoutSeconds: timeoutSeconds,
             maxTries: maxTries,
@@ -653,6 +702,7 @@ final class AppPreferences: ObservableObject {
             enablePeerExchange: enablePeerExchange,
             enableLocalPeerDiscovery: enableLocalPeerDiscovery,
             btMaxPeers: btMaxPeers,
+            btRequestPeerSpeedLimitKiB: btRequestPeerSpeedLimitKiB,
             listenPortStart: listenPortStart,
             listenPortEnd: listenPortEnd,
             seedTimeMinutes: seedTimeMinutes,
@@ -671,6 +721,112 @@ final class AppPreferences: ObservableObject {
         )
     }
 
+    var performanceProfiles: [Aria2PerformanceProfile] {
+        Aria2PerformanceProfile.builtIn + customPerformanceProfiles
+    }
+
+    var activePerformanceProfileID: UUID? {
+        guard let selectedPerformanceProfileID,
+              let selected = performanceProfiles.first(
+                where: { $0.id == selectedPerformanceProfileID }
+              ),
+              selected.hasSameSettings(as: capturedPerformanceProfile())
+        else {
+            return nil
+        }
+        return selectedPerformanceProfileID
+    }
+
+    func capturedPerformanceProfile(
+        id: UUID = UUID(),
+        name: String = ""
+    ) -> Aria2PerformanceProfile {
+        Aria2PerformanceProfile(
+            id: id,
+            kind: .custom,
+            name: name,
+            maxOverallDownloadLimitKiB: maxOverallDownloadLimitKiB,
+            maxOverallUploadLimitKiB: maxOverallUploadLimitKiB,
+            maxDownloadLimitKiB: maxDownloadLimitKiB,
+            maxUploadLimitKiB: maxUploadLimitKiB,
+            maxConcurrentDownloads: maxConcurrentDownloads,
+            maxConnectionPerServer: maxConnectionPerServer,
+            split: split,
+            minSplitSizeMiB: minSplitSizeMiB,
+            diskCacheMiB: diskCacheMiB,
+            enableDHT: enableDHT,
+            enablePeerExchange: enablePeerExchange,
+            enableLocalPeerDiscovery: enableLocalPeerDiscovery,
+            enableDHT6: advancedConfiguration.enableDHT6 == .enabled,
+            btMaxPeers: btMaxPeers,
+            btRequestPeerSpeedLimitKiB: btRequestPeerSpeedLimitKiB
+        )
+    }
+
+    func applyPerformanceProfile(_ profile: Aria2PerformanceProfile) {
+        maxOverallDownloadLimitKiB = max(profile.maxOverallDownloadLimitKiB, 0)
+        maxOverallUploadLimitKiB = max(profile.maxOverallUploadLimitKiB, 0)
+        maxDownloadLimitKiB = max(profile.maxDownloadLimitKiB, 0)
+        maxUploadLimitKiB = max(profile.maxUploadLimitKiB, 0)
+        maxConcurrentDownloads = min(max(profile.maxConcurrentDownloads, 1), 20)
+        maxConnectionPerServer = min(max(profile.maxConnectionPerServer, 1), 16)
+        split = min(max(profile.split, 1), 16)
+        minSplitSizeMiB = min(max(profile.minSplitSizeMiB, 1), 1_024)
+        diskCacheMiB = min(max(profile.diskCacheMiB, 0), 4_096)
+        enableDHT = profile.enableDHT
+        enablePeerExchange = profile.enablePeerExchange
+        enableLocalPeerDiscovery = profile.enableLocalPeerDiscovery
+        btMaxPeers = min(max(profile.btMaxPeers, 0), 500)
+        btRequestPeerSpeedLimitKiB = max(
+            profile.btRequestPeerSpeedLimitKiB,
+            0
+        )
+
+        var updatedAdvancedConfiguration = advancedConfiguration
+        updatedAdvancedConfiguration.enableDHT6 =
+            profile.enableDHT6 ? .enabled : .disabled
+        advancedConfiguration = updatedAdvancedConfiguration
+        selectedPerformanceProfileID = profile.id
+    }
+
+    @discardableResult
+    func saveCustomPerformanceProfile(
+        _ profile: Aria2PerformanceProfile
+    ) -> Aria2PerformanceProfile {
+        let trimmedName = profile.name.trimmed
+        let resolvedID = [
+            Aria2PerformanceProfile.maximumSpeedID,
+            Aria2PerformanceProfile.compatibilityID
+        ].contains(profile.id) ? UUID() : profile.id
+        var saved = Aria2PerformanceProfile.custom(
+            id: resolvedID,
+            name: trimmedName.isEmpty
+                ? L10n.string("自定义方案")
+                : trimmedName,
+            basedOn: profile
+        )
+        saved.kind = .custom
+
+        if let index = customPerformanceProfiles.firstIndex(
+            where: { $0.id == saved.id }
+        ) {
+            customPerformanceProfiles[index] = saved
+        } else {
+            customPerformanceProfiles.append(saved)
+        }
+        return saved
+    }
+
+    func removeCustomPerformanceProfile(id: UUID) {
+        guard customPerformanceProfiles.contains(where: { $0.id == id }) else {
+            return
+        }
+        customPerformanceProfiles.removeAll { $0.id == id }
+        if selectedPerformanceProfileID == id {
+            selectedPerformanceProfileID = nil
+        }
+    }
+
     func restoreRecommendedAria2Settings() {
         let recommended = Aria2Configuration.recommended(downloadDirectory: downloadDirectory)
         maxOverallDownloadLimitKiB = recommended.maxOverallDownloadLimitKiB
@@ -681,6 +837,7 @@ final class AppPreferences: ObservableObject {
         maxConnectionPerServer = recommended.maxConnectionPerServer
         split = recommended.split
         minSplitSizeMiB = recommended.minSplitSizeMiB
+        diskCacheMiB = recommended.diskCacheMiB
         connectTimeoutSeconds = recommended.connectTimeoutSeconds
         timeoutSeconds = recommended.timeoutSeconds
         maxTries = recommended.maxTries
@@ -695,12 +852,14 @@ final class AppPreferences: ObservableObject {
         enablePeerExchange = recommended.enablePeerExchange
         enableLocalPeerDiscovery = recommended.enableLocalPeerDiscovery
         btMaxPeers = recommended.btMaxPeers
+        btRequestPeerSpeedLimitKiB = recommended.btRequestPeerSpeedLimitKiB
         listenPortStart = recommended.listenPortStart
         listenPortEnd = recommended.listenPortEnd
         seedTimeMinutes = recommended.seedTimeMinutes
         seedRatio = recommended.seedRatio
         advancedConfiguration = .defaultGlobalConfiguration
         proxyPassword = ""
+        selectedPerformanceProfileID = Aria2PerformanceProfile.maximumSpeedID
     }
 
     func dismissKeychainPersistenceIssue() {
@@ -806,6 +965,12 @@ final class AppPreferences: ObservableObject {
             defaults.set(data, forKey: Key.serverProfiles)
         }
         defaults.set(activeServerProfileID?.uuidString, forKey: Key.activeServerProfileID)
+    }
+
+    private func persistPerformanceProfiles() {
+        if let data = try? JSONEncoder().encode(customPerformanceProfiles) {
+            defaults.set(data, forKey: Key.customPerformanceProfiles)
+        }
     }
 
     private func updateActiveServerProfile(
