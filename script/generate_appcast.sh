@@ -37,6 +37,7 @@ if [[ "$DOWNLOAD_URL_PREFIX" != https://* ]]; then
   echo "error: DOWNLOAD_URL_PREFIX must use HTTPS" >&2
   exit 1
 fi
+DOWNLOAD_URL_PREFIX="${DOWNLOAD_URL_PREFIX%/}/"
 
 ARGUMENTS=(
   --download-url-prefix "$DOWNLOAD_URL_PREFIX"
