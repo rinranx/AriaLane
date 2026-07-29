@@ -343,6 +343,7 @@ struct AddDownloadView: View {
         panel.prompt = L10n.string("选择")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: form.downloadDirectory)
 
