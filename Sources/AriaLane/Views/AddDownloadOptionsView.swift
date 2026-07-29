@@ -6,6 +6,7 @@ struct AddDownloadOptionsView: View {
     let urlCount: Int
     let scheduleIsRequired: Bool
     let isCompact: Bool
+    let availableHeight: CGFloat
     let chooseDirectory: () -> Void
 
     @State private var isAdvancedExpanded = true
@@ -27,12 +28,14 @@ struct AddDownloadOptionsView: View {
         urlCount: Int,
         scheduleIsRequired: Bool = false,
         isCompact: Bool = false,
+        availableHeight: CGFloat = 720,
         chooseDirectory: @escaping () -> Void
     ) {
         self.form = form
         self.urlCount = urlCount
         self.scheduleIsRequired = scheduleIsRequired
         self.isCompact = isCompact
+        self.availableHeight = availableHeight
         self.chooseDirectory = chooseDirectory
     }
 
@@ -185,7 +188,7 @@ struct AddDownloadOptionsView: View {
                         }
                     }
                 }
-                .frame(height: isCompact ? 374 : 318)
+                .frame(height: advancedPanelHeight)
                 .background(
                     Color(nsColor: .controlBackgroundColor),
                     in: RoundedRectangle(cornerRadius: 15, style: .continuous)
@@ -249,6 +252,13 @@ struct AddDownloadOptionsView: View {
                 }
             }
         }
+    }
+
+    private var advancedPanelHeight: CGFloat {
+        let minimumHeight: CGFloat = isCompact ? 374 : 318
+        guard !isCompact else { return minimumHeight }
+
+        return minimumHeight + max(0, availableHeight - 720)
     }
 
     private var sectionRail: some View {
