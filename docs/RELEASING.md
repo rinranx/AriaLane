@@ -6,19 +6,35 @@ Application 签名、Hardened Runtime 和 Apple 公证。
 
 ## 发布前准备
 
-需要：
+当前 ad-hoc 公开发布需要：
+
+- 一对只用于 AriaLane 更新的 Sparkle EdDSA 密钥
+- GitHub 仓库的 Actions 权限允许工作流创建 Release
+
+如需 Developer ID 正式签名与 Apple 公证，还需要：
 
 - Apple Developer Program 会员资格
 - `Developer ID Application` 证书及其私钥
 - 用于公证的 Apple ID、Team ID 和 App 专用密码
-- 一对只用于 AriaLane 更新的 Sparkle EdDSA 密钥
-- GitHub 仓库的 Actions 权限允许工作流创建 Release
 
 请勿把 `.p12`、密码、Sparkle 私钥或公证凭据提交到仓库。
 
 ### GitHub Actions 配置
 
-在仓库的 **Settings → Secrets and variables → Actions** 中配置：
+当前公开 Release 工作流使用 ad-hoc 代码签名，并通过 Sparkle EdDSA 签名保护
+应用内更新。必须先在仓库的 **Settings → Secrets and variables → Actions**
+中配置：
+
+| 类型 | 名称 | 内容 |
+| --- | --- | --- |
+| Secret | `SPARKLE_PRIVATE_KEY` | Sparkle 私钥内容 |
+| Variable | `SPARKLE_PUBLIC_ED_KEY` | 与私钥对应的 Sparkle 公钥 |
+
+工作流缺少任一值时会直接失败，避免发布一个看似支持更新、实际没有更新源的
+安装包。
+
+如需改为 Developer ID 签名和 Apple 公证，还需要以下凭据，并相应扩展发布
+工作流：
 
 | 类型 | 名称 | 内容 |
 | --- | --- | --- |
@@ -28,8 +44,6 @@ Application 签名、Hardened Runtime 和 Apple 公证。
 | Secret | `APPLE_ID` | Apple Developer 账号 |
 | Secret | `APPLE_TEAM_ID` | 10 位 Team ID |
 | Secret | `APPLE_APP_SPECIFIC_PASSWORD` | Apple ID 的 App 专用密码 |
-| Secret | `SPARKLE_PRIVATE_KEY` | Sparkle 私钥内容 |
-| Variable | `SPARKLE_PUBLIC_ED_KEY` | 与私钥对应的 Sparkle 公钥 |
 
 生成 `.p12` 的 Base64 内容：
 
@@ -71,26 +85,33 @@ export SPARKLE_PUBLIC_ED_KEY="PUBLIC_KEY"
 ## GitHub Release
 
 1. 在 `Resources/Info.plist` 更新版本号和构建号。
-2. 合并并推送所有更改，确认 CI 通过。
-3. 创建与版本一致的标签，例如版本 `1.0.0` 使用 `v1.0.0`。
-4. 推送标签。
+2. 合并并推送到 `main`，或手动运行 Release 工作流。
+3. 工作流会运行测试、构建 Universal ZIP 与 DMG、把 Sparkle Feed URL 和
+   公钥注入应用、生成带 EdDSA 签名的 `appcast.xml`，然后创建或更新与版本
+   一致的 GitHub Release。
+4. 从下一次发布开始，每次都必须递增
+   `CFBundleShortVersionString` 和 `CFBundleVersion`，否则 Sparkle 不会把
+   新包识别为升级版本。
+
+最初发布的 `1.0.0` 没有更新源时，可以重新发布一个仍为 `1.0.0` 的引导包。
+此前已经安装旧包的用户需要手动重新下载一次；重新下载安装后的用户才能通过
+应用内更新升级到 `1.0.1` 及更高版本。
+
+当前工作流使用 ad-hoc 代码签名，没有进行 Apple 公证。Sparkle 更新包仍会
+通过 EdDSA 签名校验；如需免除 Gatekeeper 手动允许步骤，应再接入
+Developer ID 签名和 Apple 公证。
+
+发布后请从一台未安装开发证书的 Mac 下载 Release。ad-hoc 版本至少确认代码
+签名结构完整：
 
 ```bash
-git tag -a v1.0.0 -m "AriaLane 1.0.0"
-git push origin v1.0.0
+codesign --verify --deep --strict --verbose=2 /Applications/AriaLane.app
 ```
 
-如果已经配置 Git 提交签名，也可以把 `-a` 换成 `-s` 创建签名标签。
-
-`.github/workflows/release.yml` 会验证版本、运行测试、签名、公证、生成带
-EdDSA 签名的 `appcast.xml`，然后创建 GitHub Release。任何正式签名、公证
-或更新密钥缺失都会让流程失败，不会降级发布临时签名包。
-
-发布后请从一台未安装开发证书的 Mac 下载 Release，并确认：
+Developer ID 正式版本还应确认 Gatekeeper 和公证票据：
 
 ```bash
 spctl --assess --type execute --verbose=2 /Applications/AriaLane.app
-codesign --verify --deep --strict --verbose=2 /Applications/AriaLane.app
 xcrun stapler validate /Applications/AriaLane.app
 ```
 
