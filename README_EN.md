@@ -95,8 +95,8 @@ Author: rinran ([a@rinran.me](mailto:a@rinran.me))
 - arm64 and x86_64 Universal Binary
 - ZIP and drag-to-install DMG packages
 - Optional Developer ID, Hardened Runtime, Apple notarization, and stapling
-- Optional Sparkle 2 automatic updates with EdDSA update signatures
-- GitHub Actions for tests and releases
+- Sparkle 2 in-app updates with EdDSA update signatures
+- GitHub Actions for tests and Sparkle-enabled releases
 
 ## Languages
 
