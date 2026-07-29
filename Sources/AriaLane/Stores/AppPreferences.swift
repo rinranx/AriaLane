@@ -426,7 +426,7 @@ final class AppPreferences: ObservableObject {
             forKey: Key.advancedConfiguration
         ).flatMap {
             try? JSONDecoder().decode(Aria2AdvancedOptions.self, from: $0)
-        } ?? Aria2AdvancedOptions()
+        } ?? Aria2AdvancedOptions.defaultGlobalConfiguration
         let removedLegacyMetalinkAutofill =
             !defaults.bool(forKey: Key.didMigrateMetalinkLocaleAutofill)
             && Self.removeLegacyMetalinkLocaleAutofill(
@@ -699,7 +699,7 @@ final class AppPreferences: ObservableObject {
         listenPortEnd = recommended.listenPortEnd
         seedTimeMinutes = recommended.seedTimeMinutes
         seedRatio = recommended.seedRatio
-        advancedConfiguration = Aria2AdvancedOptions()
+        advancedConfiguration = .defaultGlobalConfiguration
         proxyPassword = ""
     }
 
