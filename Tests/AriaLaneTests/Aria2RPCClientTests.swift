@@ -92,6 +92,28 @@ final class Aria2RPCClientTests: XCTestCase {
         XCTAssertEqual(gid, "gid-1")
     }
 
+    func testCertificateVerificationSettingIsSynchronizedGlobally() async throws {
+        let (client, session) = await makeClient(
+            statusCode: 200,
+            body: """
+            {"jsonrpc":"2.0","id":"arialane-1","result":"OK"}
+            """
+        ) { payload in
+            XCTAssertEqual(
+                payload["method"] as? String,
+                "aria2.changeGlobalOption"
+            )
+            let params = try XCTUnwrap(payload["params"] as? [Any])
+            let options = try XCTUnwrap(params[0] as? [String: Any])
+            XCTAssertEqual(options["check-certificate"] as? String, "true")
+        }
+        defer { session.invalidateAndCancel() }
+
+        try await client.updateGlobalOptions([
+            "check-certificate": "true"
+        ])
+    }
+
     func testSystemMulticallAuthenticatesEachAria2Invocation() async throws {
         let (client, session) = await makeClient(
             statusCode: 200,
