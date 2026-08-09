@@ -17,10 +17,14 @@ struct ContentView: View {
     @SceneStorage("pendingDownloadSearchText") private var pendingDownloadSearchText = ""
     @SceneStorage("scheduleSearchText") private var scheduleSearchText = ""
     @SceneStorage("rssSearchText") private var rssSearchText = ""
+    @SceneStorage("librarySearchText") private var librarySearchText = ""
     @State private var isShowingComposer = false
-    @SceneStorage("sidebarWidth") private var sidebarWidth = 200.0
-    @State private var isSidebarCollapsed = false
-    @State private var hasManualSidebarSelection = false
+    @AppStorage(WindowLayoutPersistence.mainSidebarWidthKey)
+    private var sidebarWidth = 200.0
+    @AppStorage(WindowLayoutPersistence.mainSidebarCollapsedKey)
+    private var isSidebarCollapsed = false
+    @AppStorage(WindowLayoutPersistence.mainSidebarManualSelectionKey)
+    private var hasManualSidebarSelection = false
     @StateObject private var viewState = ContentViewState()
     @State private var composerInitialInput = ""
     @State private var composerRequestID = UUID()
@@ -74,6 +78,11 @@ struct ContentView: View {
                         ScheduledDownloadsView(searchText: $scheduleSearchText)
                     } else if selectedFilter == .rss {
                         RSSSubscriptionsView(searchText: $rssSearchText)
+                    } else if selectedFilter == .library {
+                        LibrarySearchView(
+                            searchText: $librarySearchText,
+                            onDownload: { openComposer(initialInput: $0) }
+                        )
                     } else {
                         TransferListView(
                             filter: selectedFilter,
@@ -98,7 +107,10 @@ struct ContentView: View {
             .onAppear {
                 windowContentSize = geometry.size
                 sidebarWidth = min(max(sidebarWidth, 130), 320)
-                updateAutomaticSidebar(for: geometry.size.width)
+                updateAutomaticSidebar(
+                    for: geometry.size.width,
+                    animated: false
+                )
             }
             .onChange(of: geometry.size) { _, size in
                 windowContentSize = size
@@ -128,8 +140,13 @@ struct ContentView: View {
         .toolbarBackground(.visible, for: .windowToolbar)
         .preferredColorScheme(.light)
         .background {
-            WindowChromeConfigurator()
-                .frame(width: 0, height: 0)
+            ZStack {
+                WindowChromeConfigurator()
+                WindowFrameAutosaveConfigurator(
+                    autosaveName: WindowLayoutPersistence.mainWindowFrameAutosaveName
+                )
+            }
+            .frame(width: 0, height: 0)
         }
         .overlay(alignment: .top) {
             if let notice = store.notice {
@@ -378,6 +395,8 @@ struct ContentView: View {
             return $scheduleSearchText
         case .rss:
             return $rssSearchText
+        case .library:
+            return $librarySearchText
         default:
             return $transferSearchText
         }
@@ -400,6 +419,8 @@ struct ContentView: View {
             return L10n.string("搜索计划任务")
         case .rss:
             return L10n.string("搜索 RSS 订阅")
+        case .library:
+            return L10n.string("搜索书名、作者或主题")
         default:
             return L10n.string("搜索名称、地址或路径")
         }
@@ -431,6 +452,7 @@ struct ContentView: View {
               selectedFilter != .pending,
               selectedFilter != .scheduled,
               selectedFilter != .rss,
+              selectedFilter != .library,
               viewState.selectedGIDs.count == 1,
               let gid = viewState.selectedGIDs.first else {
             return nil
@@ -515,9 +537,21 @@ struct ContentView: View {
         isShowingComposer = true
     }
 
-    private func updateAutomaticSidebar(for windowWidth: CGFloat) {
+    private func updateAutomaticSidebar(
+        for windowWidth: CGFloat,
+        animated: Bool = true
+    ) {
         guard !hasManualSidebarSelection else { return }
-        isSidebarCollapsed = windowWidth < 680
+        let shouldCollapse = windowWidth < 680
+        if animated {
+            isSidebarCollapsed = shouldCollapse
+        } else {
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                isSidebarCollapsed = shouldCollapse
+            }
+        }
     }
 }
 

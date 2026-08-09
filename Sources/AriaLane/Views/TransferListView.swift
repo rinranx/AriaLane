@@ -405,6 +405,7 @@ private struct EmptyTransferView: View {
         case .pending: return L10n.string("没有等待发送的任务")
         case .scheduled: return L10n.string("还没有计划任务")
         case .rss: return L10n.string("还没有 RSS 订阅")
+        case .library: return L10n.string("还没有开放资源")
         case .history: return L10n.string("还没有下载历史")
         }
     }

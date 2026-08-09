@@ -75,6 +75,7 @@ final class AppPreferences: ObservableObject {
         static let seedRatio = "seedRatio"
         static let advancedConfiguration = "aria2AdvancedConfiguration"
         static let customPerformanceProfiles = "aria2CustomPerformanceProfiles"
+        static let customLibrarySources = "customLibrarySources"
         static let selectedPerformanceProfileID = "selectedPerformanceProfileID"
         static let didMigrateMetalinkLocaleAutofill =
             "didMigrateMetalinkLocaleAutofill"
@@ -309,6 +310,9 @@ final class AppPreferences: ObservableObject {
     @Published private(set) var customPerformanceProfiles: [Aria2PerformanceProfile] = [] {
         didSet { persistPerformanceProfiles() }
     }
+    @Published private(set) var customLibrarySources: [CustomLibrarySource] = [] {
+        didSet { persistCustomLibrarySources() }
+    }
     @Published private(set) var selectedPerformanceProfileID: UUID? {
         didSet {
             defaults.set(
@@ -487,6 +491,13 @@ final class AppPreferences: ObservableObject {
             try? JSONDecoder().decode([Aria2PerformanceProfile].self, from: $0)
         }?.filter {
             $0.kind == .custom && !$0.name.trimmed.isEmpty
+        } ?? []
+        customLibrarySources = defaults.data(
+            forKey: Key.customLibrarySources
+        ).flatMap {
+            try? JSONDecoder().decode([CustomLibrarySource].self, from: $0)
+        }?.compactMap {
+            try? $0.validated()
         } ?? []
         selectedPerformanceProfileID = defaults.string(
             forKey: Key.selectedPerformanceProfileID
@@ -827,6 +838,34 @@ final class AppPreferences: ObservableObject {
         }
     }
 
+    @discardableResult
+    func saveCustomLibrarySource(
+        _ source: CustomLibrarySource
+    ) throws -> CustomLibrarySource {
+        let saved = try source.validated()
+        if let index = customLibrarySources.firstIndex(
+            where: { $0.id == saved.id }
+        ) {
+            customLibrarySources[index] = saved
+        } else {
+            customLibrarySources.append(saved)
+        }
+        return saved
+    }
+
+    func setCustomLibrarySourceEnabled(id: UUID, isEnabled: Bool) {
+        guard let index = customLibrarySources.firstIndex(
+            where: { $0.id == id }
+        ) else {
+            return
+        }
+        customLibrarySources[index].isEnabled = isEnabled
+    }
+
+    func removeCustomLibrarySource(id: UUID) {
+        customLibrarySources.removeAll { $0.id == id }
+    }
+
     func restoreRecommendedAria2Settings() {
         let recommended = Aria2Configuration.recommended(downloadDirectory: downloadDirectory)
         maxOverallDownloadLimitKiB = recommended.maxOverallDownloadLimitKiB
@@ -970,6 +1009,12 @@ final class AppPreferences: ObservableObject {
     private func persistPerformanceProfiles() {
         if let data = try? JSONEncoder().encode(customPerformanceProfiles) {
             defaults.set(data, forKey: Key.customPerformanceProfiles)
+        }
+    }
+
+    private func persistCustomLibrarySources() {
+        if let data = try? JSONEncoder().encode(customLibrarySources) {
+            defaults.set(data, forKey: Key.customLibrarySources)
         }
     }
 

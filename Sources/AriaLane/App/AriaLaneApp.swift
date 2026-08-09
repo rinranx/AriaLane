@@ -39,9 +39,16 @@ final class ApplicationLifecycleCoordinator {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let lifecycleCoordinator = ApplicationLifecycleCoordinator()
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationWillFinishLaunching(_ notification: Notification) {
         FontRegistry.registerBundledFonts()
         NSApp.setActivationPolicy(.regular)
+    }
+
+    func applicationWillBecomeActive(_ notification: Notification) {
+        disableAutomaticWindowAnimations()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(workspaceDidWake(_:)),
@@ -52,14 +59,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
            let icon = NSImage(contentsOf: iconURL) {
             NSApp.applicationIconImage = icon
         }
+        disableAutomaticWindowAnimations()
+        NSApp.activate(ignoringOtherApps: true)
+        ApplicationMenuStabilizer.normalize()
         DispatchQueue.main.async {
-            NSApp.activate(ignoringOtherApps: true)
             ApplicationMenuStabilizer.normalize()
         }
     }
 
     func applicationDidUpdate(_ notification: Notification) {
         ApplicationMenuStabilizer.normalize()
+    }
+
+    func applicationWillUpdate(_ notification: Notification) {
+        disableAutomaticWindowAnimations()
     }
 
     func applicationShouldHandleReopen(
@@ -82,6 +95,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc
     private func workspaceDidWake(_ notification: Notification) {
         lifecycleCoordinator.systemDidWake()
+    }
+
+    private func disableAutomaticWindowAnimations() {
+        for window in NSApp.windows where window.canBecomeMain {
+            window.animationBehavior = .none
+        }
     }
 }
 

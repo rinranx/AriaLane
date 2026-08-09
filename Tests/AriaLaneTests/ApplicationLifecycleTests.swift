@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import AriaLane
 
@@ -54,5 +55,47 @@ final class ApplicationLifecycleTests: XCTestCase {
 
         XCTAssertEqual(result.0, 1)
         XCTAssertEqual(result.1, 1)
+    }
+
+    func testWindowFramePersistenceRoundTripsValidFrames() throws {
+        let suiteName = "WindowFramePersistenceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let expected = NSRect(x: 140, y: 180, width: 1_010, height: 730)
+
+        WindowLayoutPersistence.saveWindowFrame(
+            expected,
+            named: "MainWindow",
+            defaults: defaults
+        )
+
+        XCTAssertEqual(
+            WindowLayoutPersistence.windowFrame(
+                named: "MainWindow",
+                defaults: defaults
+            ),
+            expected
+        )
+    }
+
+    func testWindowFramePersistenceRejectsInvalidFrames() throws {
+        let suiteName = "InvalidWindowFrameTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        defaults.set(
+            NSStringFromRect(.zero),
+            forKey: "AriaLane.WindowFrame.MainWindow"
+        )
+
+        XCTAssertNil(
+            WindowLayoutPersistence.windowFrame(
+                named: "MainWindow",
+                defaults: defaults
+            )
+        )
     }
 }

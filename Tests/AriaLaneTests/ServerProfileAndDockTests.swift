@@ -88,6 +88,28 @@ final class ServerProfileAndDockTests: XCTestCase {
         XCTAssertEqual(customPort.endpointSummary, "downloads.example.test:7443")
     }
 
+    func testServerProfileRecognizesLocalizedBuiltInLocalNames() {
+        let legacyChinese = Aria2ServerProfile(
+            name: "本机",
+            endpoint: "http://127.0.0.1:6800/jsonrpc",
+            autoStartLocalAria2: true
+        )
+        let currentEnglish = Aria2ServerProfile(
+            name: "Local aria2",
+            endpoint: "http://localhost:6800/jsonrpc",
+            autoStartLocalAria2: true
+        )
+        let customRemote = Aria2ServerProfile(
+            name: "本机",
+            endpoint: "https://nas.example.test:6800/jsonrpc",
+            autoStartLocalAria2: false
+        )
+
+        XCTAssertEqual(legacyChinese.builtInLocalDisplayNameKey, "本机")
+        XCTAssertEqual(currentEnglish.builtInLocalDisplayNameKey, "本机 aria2")
+        XCTAssertNil(customRemote.builtInLocalDisplayNameKey)
+    }
+
     func testDockProgressIsWeightedByTaskSize() throws {
         let smaller = try makeTransfer(
             gid: "small",

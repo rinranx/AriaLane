@@ -1,5 +1,78 @@
+import AppKit
 import Foundation
 import SwiftUI
+
+private final class OutputFileNameMonitorView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}
+
+private struct OutputFileNameOutsideClickMonitor: NSViewRepresentable {
+    let onClickOutside: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onClickOutside: onClickOutside)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = OutputFileNameMonitorView()
+        context.coordinator.hostView = view
+        context.coordinator.startMonitoring()
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onClickOutside = onClickOutside
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.stopMonitoring()
+    }
+
+    final class Coordinator {
+        weak var hostView: NSView?
+        var onClickOutside: () -> Void
+        private var monitor: Any?
+
+        init(onClickOutside: @escaping () -> Void) {
+            self.onClickOutside = onClickOutside
+        }
+
+        func startMonitoring() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(
+                matching: .leftMouseDown
+            ) { [weak self] event in
+                guard let self,
+                      let hostView,
+                      let hostWindow = hostView.window,
+                      event.window === hostWindow else {
+                    return event
+                }
+
+                let location = hostView.convert(
+                    event.locationInWindow,
+                    from: nil
+                )
+                if !hostView.bounds.contains(location) {
+                    onClickOutside()
+                }
+                return event
+            }
+        }
+
+        func stopMonitoring() {
+            guard let monitor else { return }
+            NSEvent.removeMonitor(monitor)
+            self.monitor = nil
+        }
+
+        deinit {
+            stopMonitoring()
+        }
+    }
+}
 
 struct AddDownloadOptionsView: View {
     @ObservedObject var form: AddDownloadFormState
@@ -12,6 +85,10 @@ struct AddDownloadOptionsView: View {
     @State private var isAdvancedExpanded = true
     @State private var isShowingDestinationEditor = false
     @State private var isShowingScheduleEditor = false
+    @State private var isEditingOutputFileName = false
+    @State private var outputFileNameBeforeEditing = ""
+    @State private var outputFileNameDraft = ""
+    @FocusState private var isOutputFileNameFocused: Bool
 
     private let advancedSections: [AddDownloadSection] = [
         .transfer,
@@ -41,6 +118,9 @@ struct AddDownloadOptionsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: isCompact ? 14 : 18) {
+            if urlCount > 0 {
+                outputFileNameRow
+            }
             essentialOptions
             advancedOptions
         }
@@ -49,6 +129,192 @@ struct AddDownloadOptionsView: View {
                 form.selectedSection = .transfer
             }
         }
+        .onChange(of: urlCount) { _, count in
+            guard count != 1 else { return }
+            stopEditingOutputFileName()
+        }
+        .onChange(of: inferredOutputFileName) { _, _ in
+            stopEditingOutputFileName()
+        }
+        .onChange(of: isOutputFileNameFocused) { wasFocused, isFocused in
+            guard wasFocused, !isFocused, isEditingOutputFileName else { return }
+            finishEditingOutputFileName()
+        }
+    }
+
+    private var outputFileNameRow: some View {
+        HStack(spacing: 12) {
+            Text(L10n.string("名称"))
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .leading)
+
+            if isEditingOutputFileName,
+               urlCount == 1,
+               inferredOutputFileName != nil {
+                TextField(
+                    L10n.string("文件名"),
+                    text: $outputFileNameDraft
+                )
+                .textFieldStyle(.plain)
+                .font(LaneFont.utility(11, weight: .regular))
+                .focused($isOutputFileNameFocused)
+                .onSubmit(finishEditingOutputFileName)
+                .onExitCommand(perform: cancelEditingOutputFileName)
+                .padding(.horizontal, 10)
+                .frame(
+                    maxWidth: isCompact ? .infinity : 440,
+                    minHeight: 32
+                )
+                .background(
+                    Color(nsColor: .textBackgroundColor),
+                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(
+                            isOutputFileNameFocused
+                                ? LaneColor.accent.opacity(0.58)
+                                : LaneColor.line,
+                            lineWidth: 1
+                        )
+                }
+                .background {
+                    OutputFileNameOutsideClickMonitor(
+                        onClickOutside: finishEditingOutputFileName
+                    )
+                }
+                .onAppear(perform: focusOutputFileNameEditor)
+
+                Spacer(minLength: 8)
+            } else {
+                outputFileNameSummary
+                Spacer(minLength: 8)
+            }
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, isEditingOutputFileName ? 5 : 0)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: 42,
+            alignment: .leading
+        )
+        .background(
+            LaneColor.fill1,
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var outputFileNameSummary: some View {
+        if urlCount > 1 {
+            Text(L10n.string("\(urlCount) 个链接将分别沿用各自的名称"))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        } else if let displayedOutputFileName {
+            outputFileNameLabel(displayedOutputFileName)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2, perform: beginEditingOutputFileName)
+                .help(L10n.string("双击修改名称"))
+        } else {
+            Text(L10n.string("由服务器确定（链接中没有可识别的扩展名）"))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func outputFileNameLabel(_ fileName: String) -> some View {
+        let fileExtension = DownloadFileNameResolver.extensionSuffix(
+            inFileName: fileName
+        )
+        let stem = DownloadFileNameResolver.stem(from: fileName)
+
+        return HStack(spacing: 0) {
+            Text(stem)
+                .foregroundStyle(.primary)
+            if let fileExtension {
+                Text(fileExtension)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .font(LaneFont.utility(11, weight: .regular))
+        .lineLimit(1)
+    }
+
+    private var hasCustomOutputFileName: Bool {
+        !form.outputFileName.trimmed.isEmpty
+    }
+
+    private var inferredOutputFileName: String? {
+        form.inferredOutputFileName
+    }
+
+    private var displayedOutputFileName: String? {
+        guard inferredOutputFileName != nil else { return nil }
+        return hasCustomOutputFileName
+            ? form.outputFileName.trimmed
+            : inferredOutputFileName
+    }
+
+    private func beginEditingOutputFileName() {
+        guard urlCount == 1,
+              inferredOutputFileName != nil,
+              let displayedOutputFileName else { return }
+        outputFileNameBeforeEditing = form.outputFileName
+        outputFileNameDraft = displayedOutputFileName
+        isEditingOutputFileName = true
+    }
+
+    private func finishEditingOutputFileName() {
+        guard isEditingOutputFileName else { return }
+        let normalizedName = outputFileNameDraft.trimmed
+        if normalizedName == inferredOutputFileName?.trimmed {
+            form.outputFileName = ""
+        } else {
+            form.outputFileName = normalizedName
+        }
+        isEditingOutputFileName = false
+        isOutputFileNameFocused = false
+    }
+
+    private func cancelEditingOutputFileName() {
+        guard isEditingOutputFileName else { return }
+        form.outputFileName = outputFileNameBeforeEditing
+        outputFileNameDraft = displayedOutputFileName ?? ""
+        isEditingOutputFileName = false
+        isOutputFileNameFocused = false
+    }
+
+    private func stopEditingOutputFileName() {
+        guard isEditingOutputFileName else { return }
+        cancelEditingOutputFileName()
+    }
+
+    private func focusOutputFileNameEditor() {
+        DispatchQueue.main.async {
+            isOutputFileNameFocused = true
+            DispatchQueue.main.async {
+                selectOutputFileNameStem()
+            }
+        }
+    }
+
+    private func selectOutputFileNameStem() {
+        guard isEditingOutputFileName,
+              let editor = NSApp.keyWindow?.firstResponder as? NSTextView,
+              editor.string == outputFileNameDraft else { return }
+
+        let fileName = outputFileNameDraft as NSString
+        let extensionLength = DownloadFileNameResolver.extensionSuffix(
+            inFileName: outputFileNameDraft
+        ).map { ($0 as NSString).length } ?? 0
+        editor.setSelectedRange(
+            NSRange(
+                location: 0,
+                length: max(fileName.length - extensionLength, 0)
+            )
+        )
     }
 
     private var essentialOptions: some View {
@@ -512,19 +778,6 @@ struct AddDownloadOptionsView: View {
                         .foregroundStyle(LaneColor.accent)
                 }
             }
-
-            OptionInput(L10n.string("文件名（可选）")) {
-                TextField(
-                    L10n.string("留空则使用服务器提供的名称"),
-                    text: $form.outputFileName
-                )
-                .textFieldStyle(.plain)
-                .font(LaneFont.utility(11, weight: .regular))
-            }
-
-            Text(destinationDetail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -645,13 +898,6 @@ struct AddDownloadOptionsView: View {
             || !form.password.isEmpty
     }
 
-    private var destinationDetail: String {
-        if urlCount > 1 {
-            return L10n.string("一次添加多个链接时，请留空文件名；每个任务会使用自己的名称。")
-        }
-        return L10n.string("文件名只填写名称，不需要包含保存路径。")
-    }
-
     private var scheduleDetail: String {
         guard form.isScheduled else {
             return L10n.string("点击“添加下载”后立即加入 aria2 队列。")
@@ -671,7 +917,7 @@ struct AddDownloadOptionsView: View {
 
     private var verificationDetail: String {
         if urlCount > 1 {
-            return L10n.string("校验值和自定义文件名仅支持单链接任务。")
+            return L10n.string("校验值仅支持单链接任务。")
         }
         if form.isScheduled {
             return L10n.string("认证数据会保存在仅当前用户可读的本机文件中；aria2 仍可能写入会话文件。")

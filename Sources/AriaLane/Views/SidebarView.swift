@@ -96,6 +96,12 @@ struct SidebarView: View {
                 }
 
                 Section {
+                    expandedRow(for: .library)
+                } header: {
+                    sectionHeader(L10n.string("资源"))
+                }
+
+                Section {
                     ForEach(organization.smartFolders) { folder in
                         expandedSmartFolderRow(folder)
                     }
@@ -157,6 +163,10 @@ struct SidebarView: View {
                     ForEach(TransferFilter.liveCases) { item in
                         compactRow(for: item)
                     }
+
+                    compactDivider
+
+                    compactRow(for: .library)
 
                     compactDivider
 
@@ -354,7 +364,7 @@ struct SidebarView: View {
                     .lineLimit(1)
                     .layoutPriority(1)
 
-                if showsExpandedCounts {
+                if showsExpandedCounts, item != .library {
                     Spacer(minLength: 8)
 
                     Text(String(count(for: item)))
