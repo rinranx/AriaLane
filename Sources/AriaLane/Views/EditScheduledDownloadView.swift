@@ -28,6 +28,7 @@ struct EditScheduledDownloadView: View {
         }
         .padding(24)
         .frame(width: 920, height: 760)
+        .tint(LaneColor.accent)
         .interactiveDismissDisabled(form.isSubmitting)
         .onAppear {
             form.prepareDefaults(
@@ -152,8 +153,12 @@ struct EditScheduledDownloadView: View {
 
     private var validationMessage: String? {
         guard !parsed.urls.isEmpty else { return nil }
-        return form.taskOptions.validationMessage(forURLCount: parsed.urls.count)
+        return resolvedTaskOptions.validationMessage(forURLCount: parsed.urls.count)
             ?? form.scheduleValidationMessage
+    }
+
+    private var resolvedTaskOptions: DownloadTaskOptions {
+        form.resolvedTaskOptions(forURLCount: parsed.urls.count)
     }
 
     private var parseSummary: String {
@@ -172,11 +177,12 @@ struct EditScheduledDownloadView: View {
     private func submit() {
         let urls = parsed.urls
         guard !urls.isEmpty, validationMessage == nil else { return }
+        let taskOptions = form.resolvedTaskOptions(forURLCount: urls.count)
         form.isSubmitting = true
         let didUpdate = store.updateScheduledDownload(
             id: entry.id,
             urls: urls,
-            taskOptions: form.taskOptions,
+            taskOptions: taskOptions,
             scheduledAt: form.scheduledAt,
             frequency: form.scheduleFrequency
         )

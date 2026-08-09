@@ -114,6 +114,75 @@ final class DownloadTaskOptionsTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testFormOmitsCustomFilenameForMultipleURLsWithoutClearingDraft() {
+        let form = AddDownloadFormState()
+        form.input = "https://example.test/single.zip"
+        form.downloadDirectory = "/tmp"
+        form.outputFileName = "single.zip"
+
+        let singleURL = form.resolvedTaskOptions(forURLCount: 1)
+        let multipleURLs = form.resolvedTaskOptions(forURLCount: 2)
+
+        XCTAssertEqual(singleURL.outputFileName, "single.zip")
+        XCTAssertEqual(multipleURLs.outputFileName, "")
+        XCTAssertEqual(form.outputFileName, "single.zip")
+        XCTAssertNil(multipleURLs.validationMessage(forURLCount: 2))
+    }
+
+    @MainActor
+    func testFormOnlyAppliesCustomNameWhenSourceExtensionIsRecognizable() {
+        let form = AddDownloadFormState()
+        form.downloadDirectory = "/tmp"
+        form.outputFileName = "weekly-build.zip"
+
+        form.input = "https://example.test/download?id=42"
+        XCTAssertNil(form.recognizedOutputFileExtension)
+        XCTAssertEqual(
+            form.resolvedTaskOptions(forURLCount: 1).outputFileName,
+            ""
+        )
+
+        form.input = "https://example.test/releases/archive.tar.gz"
+        XCTAssertEqual(form.recognizedOutputFileExtension, ".tar.gz")
+        XCTAssertEqual(form.inferredOutputFileName, "archive.tar.gz")
+        XCTAssertEqual(
+            form.resolvedTaskOptions(forURLCount: 1).outputFileName,
+            "weekly-build.zip"
+        )
+    }
+
+    func testFilenameResolverKeepsExtensionOutsideEditableStem() {
+        XCTAssertEqual(
+            DownloadFileNameResolver.fileName(
+                stem: "weekly-build",
+                preserving: ".zip"
+            ),
+            "weekly-build.zip"
+        )
+        XCTAssertEqual(
+            DownloadFileNameResolver.stem(from: "weekly-build.tar.xz"),
+            "weekly-build"
+        )
+        XCTAssertEqual(
+            DownloadFileNameResolver.extensionSuffix(
+                for: "magnet:?xt=urn:btih:abc&dn=release.iso"
+            ),
+            ".iso"
+        )
+        XCTAssertEqual(
+            DownloadFileNameResolver.suggestedFileName(
+                for: "https://example.test/releases/weekly%20build.zip"
+            ),
+            "weekly build.zip"
+        )
+        XCTAssertNil(
+            DownloadFileNameResolver.suggestedFileName(
+                for: "https://example.test/download?id=42"
+            )
+        )
+    }
+
     func testValidatesChecksumLengthAndCharacters() {
         var options = DownloadTaskOptions.defaults(directory: "/tmp")
         options.checksumAlgorithm = .md5

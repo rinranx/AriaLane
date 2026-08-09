@@ -60,6 +60,7 @@ enum TransferFilter: String, CaseIterable, Identifiable {
     case pending
     case scheduled
     case rss
+    case library
     case history
 
     static let liveCases: [TransferFilter] = [
@@ -82,6 +83,7 @@ enum TransferFilter: String, CaseIterable, Identifiable {
         case .pending: L10n.string("待发送")
         case .scheduled: L10n.string("计划任务")
         case .rss: L10n.string("RSS 订阅")
+        case .library: L10n.string("资源搜索")
         case .history: L10n.string("下载历史")
         }
     }
@@ -96,6 +98,7 @@ enum TransferFilter: String, CaseIterable, Identifiable {
         case .pending: "tray.and.arrow.up"
         case .scheduled: "calendar.badge.clock"
         case .rss: "dot.radiowaves.left.and.right"
+        case .library: "books.vertical"
         case .history: "clock.arrow.circlepath"
         }
     }
@@ -112,7 +115,7 @@ enum TransferFilter: String, CaseIterable, Identifiable {
             item.status == .paused || item.status == .error
         case .completed:
             item.status == .complete
-        case .pending, .scheduled, .rss, .history:
+        case .pending, .scheduled, .rss, .library, .history:
             false
         }
     }

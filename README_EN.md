@@ -4,13 +4,13 @@
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-5c6ac4.svg)](LICENSE)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111.svg)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-f05138.svg)
-![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-2ebfa5.svg)
+![Version 1.0.1](https://img.shields.io/badge/version-1.0.1-2ebfa5.svg)
 
 AriaLane is a minimal, native aria2 desktop client for macOS. It can connect
 automatically to a local `aria2c` process and manage multiple remote aria2
 JSON-RPC servers.
 
-Current version: **1.0.0**
+Current version: **1.0.1**
 
 Author: rinran ([a@rinran.me](mailto:a@rinran.me))
 
@@ -24,6 +24,14 @@ Author: rinran ([a@rinran.me](mailto:a@rinran.me))
 - Extract and filter download links from one or more web pages, with optional
   JavaScript rendering
 - Read download links from QR codes in image files or the photo library
+- Search public catalogs across Internet Archive, Project Gutenberg's official
+  OPDS feed, and Open Library; add multiple custom OPDS 1.x search sources and
+  optionally filter by source
+- Recheck rights and access before download: Internet Archive files require a
+  verifiable Creative Commons or public-domain license; Project Gutenberg files
+  require an explicit “Public domain in the USA” notice; Open Library entries
+  without a verifiable public file, and custom OPDS entries without verified
+  open rights, open their original page instead
 - Press `⌘⇧V` to prefill a task from the clipboard, or open the app from a
   browser with `arialane://add`
 - Drop multiple links, `.torrent`, `.metalink`, or `.meta4` files and process
@@ -102,7 +110,7 @@ Author: rinran ([a@rinran.me](mailto:a@rinran.me))
 
 ## Languages
 
-AriaLane 1.0.0 supports Simplified Chinese and English. Choose the language in
+AriaLane 1.0.1 supports Simplified Chinese and English. Choose the language in
 **Settings → General → Language**:
 
 - The default follows the system language.
@@ -131,7 +139,7 @@ brew install aria2
 
 ## Installation
 
-1. Download `AriaLane-1.0.0-macOS-universal.dmg` from
+1. Download `AriaLane-1.0.1-macOS-universal.dmg` from
    [GitHub Releases](https://github.com/rinranx/AriaLane/releases).
 2. Open the DMG and drag **AriaLane** into **Applications**.
 3. On first launch, right-click AriaLane in Finder's Applications folder and

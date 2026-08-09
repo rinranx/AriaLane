@@ -1,6 +1,97 @@
 import Combine
 import Foundation
 
+enum DownloadFileNameResolver {
+    private static let compoundExtensions = [
+        "tar.bz2",
+        "tar.gz",
+        "tar.lz",
+        "tar.lzma",
+        "tar.xz",
+        "tar.zst",
+    ]
+
+    static func extensionSuffix(for sourceURL: String) -> String? {
+        guard let candidateName = candidateFileName(for: sourceURL) else {
+            return nil
+        }
+        return extensionSuffix(inFileName: candidateName)
+    }
+
+    static func suggestedFileName(for sourceURL: String) -> String? {
+        guard let candidateName = candidateFileName(for: sourceURL),
+              extensionSuffix(inFileName: candidateName) != nil else {
+            return nil
+        }
+        return candidateName
+    }
+
+    private static func candidateFileName(for sourceURL: String) -> String? {
+        let rawCandidateName: String?
+        if sourceURL.lowercased().hasPrefix("magnet:?") {
+            rawCandidateName = URLComponents(
+                string: sourceURL
+            )?.queryItems?.first {
+                $0.name.lowercased() == "dn"
+            }?.value
+        } else {
+            rawCandidateName = URL(string: sourceURL)?.lastPathComponent
+        }
+
+        guard let rawCandidateName else { return nil }
+        let decodedName = rawCandidateName.removingPercentEncoding ?? rawCandidateName
+        let candidateName = NSString(
+            string: decodedName.trimmed
+        ).lastPathComponent
+        guard !candidateName.isEmpty,
+              candidateName != ".",
+              candidateName != ".." else {
+            return nil
+        }
+        return candidateName
+    }
+
+    static func extensionSuffix(inFileName fileName: String) -> String? {
+        let name = NSString(string: fileName.trimmed).lastPathComponent
+        let lowercasedName = name.lowercased()
+
+        for fileExtension in compoundExtensions
+        where lowercasedName.hasSuffix(".\(fileExtension)") {
+            return String(name.suffix(fileExtension.count + 1))
+        }
+
+        let pathExtension = NSString(string: name).pathExtension
+        guard !pathExtension.isEmpty,
+              pathExtension.count <= 16,
+              pathExtension.unicodeScalars.allSatisfy(
+                  CharacterSet.alphanumerics.contains
+              ),
+              pathExtension.unicodeScalars.contains(
+                  where: CharacterSet.letters.contains
+              ) else {
+            return nil
+        }
+        return ".\(pathExtension)"
+    }
+
+    static func stem(from fileName: String) -> String {
+        let normalizedName = fileName.trimmed
+        guard let fileExtension = extensionSuffix(inFileName: normalizedName) else {
+            return normalizedName
+        }
+        return String(normalizedName.dropLast(fileExtension.count))
+    }
+
+    static func fileName(stem: String, preserving fileExtension: String) -> String {
+        var normalizedStem = stem.trimmed
+        if normalizedStem.lowercased().hasSuffix(fileExtension.lowercased()) {
+            normalizedStem = String(normalizedStem.dropLast(fileExtension.count)).trimmed
+        }
+        guard !normalizedStem.isEmpty else { return "" }
+        return normalizedStem + fileExtension
+    }
+}
+
 enum AddDownloadSection: String, CaseIterable, Identifiable {
     case destination
     case transfer
@@ -30,7 +121,7 @@ enum AddDownloadSection: String, CaseIterable, Identifiable {
 
     var detail: String {
         switch self {
-        case .destination: L10n.string("目录与文件名")
+        case .destination: L10n.string("保存目录")
         case .transfer: L10n.string("限速、分段、连接")
         case .sources: L10n.string("备用 URI 与多源")
         case .request: "Referer、UA、Header"
@@ -182,11 +273,35 @@ final class AddDownloadFormState: ObservableObject {
         )
     }
 
+    var inferredOutputFileName: String? {
+        let urls = DownloadInputParser.parse(input).urls
+        guard urls.count == 1, let sourceURL = urls.first else { return nil }
+        return DownloadFileNameResolver.suggestedFileName(for: sourceURL)
+    }
+
+    var recognizedOutputFileExtension: String? {
+        guard let inferredOutputFileName else { return nil }
+        return DownloadFileNameResolver.extensionSuffix(
+            inFileName: inferredOutputFileName
+        )
+    }
+
+    func resolvedTaskOptions(forURLCount urlCount: Int) -> DownloadTaskOptions {
+        var options = taskOptions
+        guard urlCount == 1,
+              inferredOutputFileName != nil else {
+            options.outputFileName = ""
+            return options
+        }
+
+        options.outputFileName = options.outputFileName.trimmed
+        return options
+    }
+
     func hasOverrides(in section: AddDownloadSection) -> Bool {
         switch section {
         case .destination:
             return downloadDirectory.trimmed != defaultDirectory.trimmed
-                || !outputFileName.trimmed.isEmpty
         case .transfer:
             return maxDownloadLimitKiB != defaultDownloadLimitKiB
                 || maxUploadLimitKiB != defaultUploadLimitKiB

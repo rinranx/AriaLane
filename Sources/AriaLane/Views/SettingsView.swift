@@ -6,6 +6,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     case speed
     case network
     case advanced
+    case resources
     case connection
     case about
 
@@ -23,6 +24,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speed: L10n.string("速度")
         case .network: L10n.string("网络")
         case .advanced: L10n.string("高级")
+        case .resources: L10n.string("资源来源")
         case .connection: L10n.string("连接")
         case .about: L10n.string("关于")
         }
@@ -34,6 +36,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speed: L10n.string("限速、趋势与调度")
         case .network: L10n.string("分段、重试与 BT")
         case .advanced: L10n.string("代理、TLS 与协议细节")
+        case .resources: L10n.string("管理自定义 OPDS 目录")
         case .connection: L10n.string("服务器与连接诊断")
         case .about: L10n.string("版本与版权信息")
         }
@@ -45,6 +48,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speed: "gauge.with.dots.needle.67percent"
         case .network: "network"
         case .advanced: "slider.horizontal.3"
+        case .resources: "books.vertical.circle"
         case .connection: "point.3.connected.trianglepath.dotted"
         case .about: "info.circle"
         }
@@ -210,6 +214,8 @@ struct SettingsView: View {
             NetworkSettingsPane()
         case .advanced:
             AdvancedAria2SettingsPane()
+        case .resources:
+            CustomLibrarySourcesSettingsPane()
         case .connection:
             ConnectionSettingsPane()
         case .about:
@@ -957,7 +963,7 @@ private struct ConnectionSettingsPane: View {
 
     private var activeProfileNameBinding: Binding<String> {
         Binding(
-            get: { preferences.activeServerProfile?.name ?? "" },
+            get: { preferences.activeServerProfile?.displayName ?? "" },
             set: { preferences.renameActiveServerProfile($0) }
         )
     }

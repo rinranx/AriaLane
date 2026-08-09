@@ -1,6 +1,49 @@
 import AppKit
 import SwiftUI
 
+enum WindowLayoutPersistence {
+    static let mainWindowFrameAutosaveName = "AriaLane.MainWindow"
+    static let mainSidebarWidthKey = "AriaLane.MainSidebarWidth"
+    static let mainSidebarCollapsedKey = "AriaLane.MainSidebarCollapsed"
+    static let mainSidebarManualSelectionKey =
+        "AriaLane.MainSidebarHasManualSelection"
+
+    static func windowFrame(
+        named name: String,
+        defaults: UserDefaults = .standard
+    ) -> NSRect? {
+        guard let value = defaults.string(forKey: windowFrameKey(named: name)) else {
+            return nil
+        }
+
+        let frame = NSRectFromString(value)
+        guard frame.origin.x.isFinite,
+              frame.origin.y.isFinite,
+              frame.width.isFinite,
+              frame.height.isFinite,
+              frame.width > 0,
+              frame.height > 0 else {
+            return nil
+        }
+        return frame
+    }
+
+    static func saveWindowFrame(
+        _ frame: NSRect,
+        named name: String,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(
+            NSStringFromRect(frame),
+            forKey: windowFrameKey(named: name)
+        )
+    }
+
+    private static func windowFrameKey(named name: String) -> String {
+        "AriaLane.WindowFrame.\(name)"
+    }
+}
+
 struct WindowChromeConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         WindowChromeProbeView()
@@ -41,29 +84,14 @@ private final class WindowFrameAutosaveProbeView: NSView {
         nil
     }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        configureWindowIfAvailable()
-    }
-
-    func configureWindowIfAvailable() {
-        guard let window, configuredWindow !== window else {
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        guard let newWindow else {
+            stopObservingWindow()
             return
         }
-        configuredWindow = window
-
-        let storedFrameKey = "NSWindow Frame \(autosaveName)"
-        if UserDefaults.standard.string(forKey: storedFrameKey) != nil {
-            _ = window.setFrameUsingName(autosaveName)
-        }
-        _ = window.setFrameAutosaveName(autosaveName)
+        configure(window: newWindow)
     }
-}
-
-private final class WindowChromeProbeView: NSView {
-    private static let highlightIdentifier = NSUserInterfaceItemIdentifier(
-        "AriaLane.TopInsetHighlight"
-    )
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -72,7 +100,97 @@ private final class WindowChromeProbeView: NSView {
 
     func configureWindowIfAvailable() {
         guard let window else { return }
+        configure(window: window)
+    }
 
+    private func configure(window: NSWindow) {
+        guard configuredWindow !== window else { return }
+        stopObservingWindow()
+        configuredWindow = window
+
+        if let frame = WindowLayoutPersistence.windowFrame(named: autosaveName) {
+            let matchingScreen = NSScreen.screens.first {
+                $0.visibleFrame.intersects(frame)
+            } ?? window.screen ?? NSScreen.main
+            let restoredFrame = window.constrainFrameRect(
+                frame,
+                to: matchingScreen
+            )
+            window.setFrame(restoredFrame, display: false)
+        } else if UserDefaults.standard.string(
+            forKey: "NSWindow Frame \(autosaveName)"
+        ) != nil {
+            _ = window.setFrameUsingName(autosaveName)
+        }
+
+        let center = NotificationCenter.default
+        center.addObserver(
+            self,
+            selector: #selector(windowFrameDidChange(_:)),
+            name: NSWindow.didMoveNotification,
+            object: window
+        )
+        center.addObserver(
+            self,
+            selector: #selector(windowFrameDidChange(_:)),
+            name: NSWindow.didResizeNotification,
+            object: window
+        )
+        center.addObserver(
+            self,
+            selector: #selector(windowFrameDidChange(_:)),
+            name: NSWindow.willCloseNotification,
+            object: window
+        )
+    }
+
+    @objc
+    private func windowFrameDidChange(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              configuredWindow === window else {
+            return
+        }
+        WindowLayoutPersistence.saveWindowFrame(
+            window.frame,
+            named: autosaveName
+        )
+    }
+
+    private func stopObservingWindow() {
+        if let configuredWindow {
+            WindowLayoutPersistence.saveWindowFrame(
+                configuredWindow.frame,
+                named: autosaveName
+            )
+        }
+        NotificationCenter.default.removeObserver(self)
+        configuredWindow = nil
+    }
+}
+
+private final class WindowChromeProbeView: NSView {
+    private static let highlightIdentifier = NSUserInterfaceItemIdentifier(
+        "AriaLane.TopInsetHighlight"
+    )
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        guard let newWindow else { return }
+        configure(window: newWindow)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        configureWindowIfAvailable()
+    }
+
+    func configureWindowIfAvailable() {
+        guard let window else { return }
+        configure(window: window)
+    }
+
+    private func configure(window: NSWindow) {
+        window.animationBehavior = .none
         window.appearance = NSAppearance(named: .aqua)
         window.backgroundColor = .white
         window.titleVisibility = .hidden

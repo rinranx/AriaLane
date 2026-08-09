@@ -55,6 +55,7 @@ struct AddDownloadView: View {
         }
         .frame(width: sheetSize.width, height: sheetSize.height)
         .background(LaneColor.canvas)
+        .tint(LaneColor.accent)
         .interactiveDismissDisabled(form.isSubmitting)
         .sheet(isPresented: $isShowingQRCodeScanner) {
             QRCodeScannerView(onScan: appendURLs)
@@ -273,8 +274,12 @@ struct AddDownloadView: View {
 
     private var validationMessage: String? {
         guard !parsed.urls.isEmpty else { return nil }
-        return form.taskOptions.validationMessage(forURLCount: parsed.urls.count)
+        return resolvedTaskOptions.validationMessage(forURLCount: parsed.urls.count)
             ?? form.scheduleValidationMessage
+    }
+
+    private var resolvedTaskOptions: DownloadTaskOptions {
+        form.resolvedTaskOptions(forURLCount: parsed.urls.count)
     }
 
     private var parseSummary: String {
@@ -333,6 +338,7 @@ struct AddDownloadView: View {
     private func submit() {
         let urls = parsed.urls
         guard !urls.isEmpty, validationMessage == nil else { return }
+        let taskOptions = form.resolvedTaskOptions(forURLCount: urls.count)
         form.isSubmitting = true
 
         Task {
@@ -340,14 +346,14 @@ struct AddDownloadView: View {
             if form.isScheduled {
                 didAdd = store.scheduleDownloads(
                     urls,
-                    taskOptions: form.taskOptions,
+                    taskOptions: taskOptions,
                     at: form.scheduledAt,
                     frequency: form.scheduleFrequency
                 )
             } else {
                 didAdd = await store.addDownloads(
                     urls,
-                    taskOptions: form.taskOptions
+                    taskOptions: taskOptions
                 )
             }
             form.isSubmitting = false

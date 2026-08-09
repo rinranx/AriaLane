@@ -4,12 +4,12 @@
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-5c6ac4.svg)](LICENSE)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111111.svg)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-f05138.svg)
-![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-2ebfa5.svg)
+![Version 1.0.1](https://img.shields.io/badge/version-1.0.1-2ebfa5.svg)
 
 AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自动
 连接本机 `aria2c`，也能管理多个远程 aria2 JSON-RPC 服务器。
 
-当前版本：**1.0.0**
+当前版本：**1.0.1**
 
 作者：rinran（[a@rinran.me](mailto:a@rinran.me)）
 
@@ -22,6 +22,11 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 - 添加 HTTP、HTTPS、FTP、SFTP、magnet 链接
 - 从一个或多个网页提取下载链接，支持结果筛选与可选 JavaScript 渲染
 - 从图片文件或照片图库识别二维码中的下载链接
+- 同时搜索 Internet Archive、Project Gutenberg 官方 OPDS 与 Open Library
+  的公开馆藏，也可添加多个自定义 OPDS 1.x 搜索来源并按来源筛选
+- 下载前复核权利与访问状态：Internet Archive 仅接受可验证的 Creative
+  Commons / 公版许可；Project Gutenberg 仅直接下载明确标注“美国公版”的版本；
+  Open Library 与自定义 OPDS 条目无法验证开放权利时只打开原站页面
 - `⌘⇧V` 从剪贴板预填任务，或通过 `arialane://add` 从浏览器唤起
 - 一次拖入多个链接、`.torrent`、`.metalink` 或 `.meta4`，导入文件会排队逐个选择
 - Torrent 导入支持文件选择与 HTTP(S)/FTP Web Seed
@@ -81,7 +86,7 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 
 ## 语言
 
-AriaLane 1.0.0 支持简体中文与英文，并可在 **设置 → 通用 → 语言** 中切换：
+AriaLane 1.0.1 支持简体中文与英文，并可在 **设置 → 通用 → 语言** 中切换：
 
 - 默认跟随系统语言。
 - 系统首选语言为任意中文（包括繁体中文）时显示中文。
@@ -108,7 +113,7 @@ brew install aria2
 ## 安装
 
 1. 从 [GitHub Releases](https://github.com/rinranx/AriaLane/releases) 下载
-   `AriaLane-1.0.0-macOS-universal.dmg`。
+   `AriaLane-1.0.1-macOS-universal.dmg`。
 2. 打开 DMG，把 **AriaLane** 拖入 **Applications**。
 3. 首次启动时，在 Finder 的“应用程序”中右键点按 AriaLane，选择
    **打开 → 打开**。

@@ -20,7 +20,31 @@ struct Aria2ServerProfile: Codable, Identifiable, Equatable, Sendable {
 
     var displayName: String {
         let normalized = name.trimmed
-        return normalized.isEmpty ? L10n.string("未命名服务器") : normalized
+        guard !normalized.isEmpty else {
+            return L10n.string("未命名服务器")
+        }
+
+        switch builtInLocalDisplayNameKey {
+        case "本机":
+            return L10n.string("本机")
+        case "本机 aria2":
+            return L10n.string("本机 aria2")
+        default:
+            return normalized
+        }
+    }
+
+    var builtInLocalDisplayNameKey: String? {
+        guard isLocalEndpoint else { return nil }
+
+        if normalizedNameMatches("本机") || normalizedNameMatches("Local") {
+            return "本机"
+        }
+        if normalizedNameMatches("本机 aria2")
+            || normalizedNameMatches("Local aria2") {
+            return "本机 aria2"
+        }
+        return nil
     }
 
     var hostDescription: String {
@@ -51,6 +75,24 @@ struct Aria2ServerProfile: Codable, Identifiable, Equatable, Sendable {
             return "\(host):\(port)"
         }
         return host
+    }
+
+    private var isLocalEndpoint: Bool {
+        var candidate = endpoint.trimmed
+        if !candidate.contains("://") {
+            candidate = "http://" + candidate
+        }
+        guard let host = URLComponents(string: candidate)?.host?.lowercased() else {
+            return false
+        }
+        return host == "127.0.0.1" || host == "localhost" || host == "::1"
+    }
+
+    private func normalizedNameMatches(_ candidate: String) -> Bool {
+        name.trimmed.compare(
+            candidate,
+            options: [.caseInsensitive, .diacriticInsensitive]
+        ) == .orderedSame
     }
 }
 

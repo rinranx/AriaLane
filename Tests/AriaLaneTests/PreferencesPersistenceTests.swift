@@ -115,6 +115,54 @@ final class PreferencesPersistenceTests: XCTestCase {
     }
 
     @MainActor
+    func testMultipleCustomLibrarySourcesPersistAndCanBeManaged() throws {
+        let suiteName = "CustomLibrarySourceTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let preferences = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+        let first = try preferences.saveCustomLibrarySource(
+            CustomLibrarySource(
+                name: "First",
+                searchURLTemplate: "https://first.example/opds?q={query}"
+            )
+        )
+        let second = try preferences.saveCustomLibrarySource(
+            CustomLibrarySource(
+                name: "Second",
+                searchURLTemplate: "https://second.example/opds?q={query}"
+            )
+        )
+        preferences.setCustomLibrarySourceEnabled(
+            id: second.id,
+            isEnabled: false
+        )
+
+        let relaunched = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+
+        XCTAssertEqual(relaunched.customLibrarySources.count, 2)
+        XCTAssertEqual(
+            relaunched.customLibrarySources.first { $0.id == first.id }?.name,
+            "First"
+        )
+        XCTAssertEqual(
+            relaunched.customLibrarySources.first { $0.id == second.id }?.isEnabled,
+            false
+        )
+
+        relaunched.removeCustomLibrarySource(id: first.id)
+        XCTAssertEqual(relaunched.customLibrarySources.map(\.id), [second.id])
+    }
+
+    @MainActor
     func testCertificateVerificationIsDisabledByDefault() {
         let suiteName = "CertificateVerificationDefaultsTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -417,6 +465,21 @@ final class SettingsRoutingTests: XCTestCase {
         XCTAssertEqual(
             defaults.string(forKey: SettingsPane.preferenceKey),
             SettingsPane.speed.rawValue
+        )
+    }
+
+    func testResourceSourceSettingsRouteSelectsResourcesPane() {
+        let suiteName = "ResourceSettingsRoutingTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        SettingsPane.resources.select(in: defaults)
+
+        XCTAssertEqual(
+            defaults.string(forKey: SettingsPane.preferenceKey),
+            SettingsPane.resources.rawValue
         )
     }
 }
