@@ -39,6 +39,7 @@ struct LibrarySearchView: View {
             LibraryDownloadFormatsView(
                 resource: resource,
                 service: LibraryCatalogService(
+                    enabledBuiltInSources: preferences.enabledBuiltInLibrarySources,
                     customSources: preferences.customLibrarySources
                 ),
                 onDownload: { pendingDownloadURL = $0 }
@@ -51,6 +52,12 @@ struct LibrarySearchView: View {
                 onDownload(url)
             }
         }
+        .onChange(of: preferences.disabledBuiltInLibrarySources) { _, _ in
+            normalizeScopeSelection()
+        }
+        .onChange(of: preferences.customLibrarySources) { _, _ in
+            normalizeScopeSelection()
+        }
     }
 
     private var header: some View {
@@ -60,7 +67,7 @@ struct LibrarySearchView: View {
                     .font(LaneFont.display(27))
                 Text(
                     L10n.string(
-                        "搜索内置与自定义 OPDS 来源中的开放资源"
+                        "搜索已启用的内置开放资源与自定义 OPDS 目录"
                     )
                 )
                 .font(LaneFont.interface(12))
@@ -169,7 +176,7 @@ struct LibrarySearchView: View {
             .font(LaneFont.interface(10))
             .foregroundStyle(.tertiary)
             .multilineTextAlignment(.center)
-            Text(L10n.string("可在设置的“资源来源”中添加多个自定义 OPDS 目录。"))
+            Text(L10n.string("可在设置的“资源来源”中开关内置来源并管理自定义 OPDS 目录。"))
                 .font(LaneFont.interface(10))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -284,8 +291,12 @@ struct LibrarySearchView: View {
         _ query: String,
         scope requestedScope: LibrarySearchScope
     ) async {
-        let requestedSources = preferences.customLibrarySources
-        let service = LibraryCatalogService(customSources: requestedSources)
+        let requestedBuiltInSources = preferences.enabledBuiltInLibrarySources
+        let requestedCustomSources = preferences.customLibrarySources
+        let service = LibraryCatalogService(
+            enabledBuiltInSources: requestedBuiltInSources,
+            customSources: requestedCustomSources
+        )
         isSearching = true
         errorMessage = nil
         lastSubmittedQuery = query
@@ -298,7 +309,8 @@ struct LibrarySearchView: View {
             guard !Task.isCancelled,
                   searchText.trimmed == query,
                   scope == requestedScope,
-                  preferences.customLibrarySources == requestedSources else {
+                  preferences.enabledBuiltInLibrarySources == requestedBuiltInSources,
+                  preferences.customLibrarySources == requestedCustomSources else {
                 return
             }
             page = nextPage
@@ -308,7 +320,8 @@ struct LibrarySearchView: View {
             guard !Task.isCancelled,
                   searchText.trimmed == query,
                   scope == requestedScope,
-                  preferences.customLibrarySources == requestedSources else {
+                  preferences.enabledBuiltInLibrarySources == requestedBuiltInSources,
+                  preferences.customLibrarySources == requestedCustomSources else {
                 return
             }
             page = nil
@@ -317,13 +330,18 @@ struct LibrarySearchView: View {
 
         if searchText.trimmed == query,
            scope == requestedScope,
-           preferences.customLibrarySources == requestedSources {
+           preferences.enabledBuiltInLibrarySources == requestedBuiltInSources,
+           preferences.customLibrarySources == requestedCustomSources {
             isSearching = false
         }
     }
 
     private var scope: LibrarySearchScope {
         let candidate = LibrarySearchScope(storageValue: scopeRaw)
+        if let builtInSource = candidate.builtInSource,
+           !preferences.isBuiltInLibrarySourceEnabled(builtInSource) {
+            return .all
+        }
         if case .custom(let id) = candidate,
            !enabledCustomSources.contains(where: { $0.id == id }) {
             return .all
@@ -335,8 +353,14 @@ struct LibrarySearchView: View {
         preferences.customLibrarySources.filter(\.isEnabled)
     }
 
+    private var enabledBuiltInSources: [BuiltInLibrarySource] {
+        BuiltInLibrarySource.allCases.filter {
+            preferences.isBuiltInLibrarySourceEnabled($0)
+        }
+    }
+
     private var enabledSourceCount: Int {
-        LibraryResourceProvider.builtInCases.count + enabledCustomSources.count
+        enabledBuiltInSources.count + enabledCustomSources.count
     }
 
     private var scopeTitle: String {
@@ -344,16 +368,27 @@ struct LibrarySearchView: View {
     }
 
     private var searchRequestID: String {
-        let sourceRevision = preferences.customLibrarySources.map {
+        let builtInRevision = preferences.disabledBuiltInLibrarySources
+            .map(\.rawValue)
+            .sorted()
+            .joined(separator: ",")
+        let customSourceRevision = preferences.customLibrarySources.map {
             "\($0.id.uuidString):\($0.name):\($0.searchURLTemplate):\($0.isEnabled)"
         }.joined(separator: "\u{1E}")
-        return "\(scope.storageValue)\u{1F}\(searchText.trimmed)\u{1F}\(sourceRevision)"
+        return "\(scope.storageValue)\u{1F}\(searchText.trimmed)\u{1F}\(builtInRevision)\u{1F}\(customSourceRevision)"
     }
 
     private var sourcePicker: some View {
         Menu {
-            Picker(L10n.string("搜索来源"), selection: $scopeRaw) {
-                ForEach(LibrarySearchScope.builtInCases) { option in
+            Picker(L10n.string("搜索来源"), selection: scopeSelection) {
+                Label(
+                    LibrarySearchScope.all.title(customSources: enabledCustomSources),
+                    systemImage: LibrarySearchScope.all.systemImage
+                )
+                .tag(LibrarySearchScope.all.storageValue)
+
+                ForEach(enabledBuiltInSources) { source in
+                    let option = source.searchScope
                     Label(
                         option.title(customSources: enabledCustomSources),
                         systemImage: option.systemImage
@@ -373,7 +408,7 @@ struct LibrarySearchView: View {
             Button {
                 openResourceSourceSettings()
             } label: {
-                Label(L10n.string("管理自定义来源…"), systemImage: "gearshape")
+                Label(L10n.string("管理资源来源…"), systemImage: "gearshape")
             }
         } label: {
             Label(scopeTitle, systemImage: scope.systemImage)
@@ -384,28 +419,40 @@ struct LibrarySearchView: View {
 
     private var browseSourcesMenu: some View {
         Menu {
-            Button("Internet Archive") {
-                openURL(URL(string: "https://archive.org/details/texts")!)
-            }
-            Button("Project Gutenberg") {
-                openURL(URL(string: "https://www.gutenberg.org/ebooks/")!)
-            }
-            Button("Open Library") {
-                openURL(URL(string: "https://openlibrary.org/search")!)
+            ForEach(enabledBuiltInSources) { source in
+                Button(source.provider.title) {
+                    openURL(source.browseURL)
+                }
             }
 
-            Divider()
+            if !enabledBuiltInSources.isEmpty {
+                Divider()
+            }
 
             Button {
                 openResourceSourceSettings()
             } label: {
-                Label(L10n.string("管理自定义来源…"), systemImage: "gearshape")
+                Label(L10n.string("管理资源来源…"), systemImage: "gearshape")
             }
         } label: {
             Label(L10n.string("浏览来源"), systemImage: "arrow.up.right.square")
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+    }
+
+    private var scopeSelection: Binding<String> {
+        Binding(
+            get: { scope.storageValue },
+            set: { scopeRaw = $0 }
+        )
+    }
+
+    private func normalizeScopeSelection() {
+        let normalizedValue = scope.storageValue
+        if scopeRaw != normalizedValue {
+            scopeRaw = normalizedValue
+        }
     }
 
     private func openResourceSourceSettings() {

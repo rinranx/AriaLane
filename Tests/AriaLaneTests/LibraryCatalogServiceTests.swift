@@ -113,6 +113,107 @@ final class LibraryCatalogServiceTests: XCTestCase {
         )
     }
 
+    func testAllScopeSkipsDisabledBuiltInSources() async throws {
+        CatalogURLProtocolStub.handler = { request in
+            guard request.url?.host == "openlibrary.org",
+                  request.url?.path == "/search.json" else {
+                XCTFail("Disabled source was queried: \(request.url?.absoluteString ?? "nil")")
+                return Self.response(
+                    for: request,
+                    statusCode: 500,
+                    contentType: "text/plain",
+                    body: "Unexpected Request"
+                )
+            }
+
+            return Self.response(
+                for: request,
+                contentType: "application/json",
+                body: """
+                {
+                  "numFound": 1,
+                  "docs": [{
+                    "key": "/works/OL2W",
+                    "title": "Only Enabled Source",
+                    "ebook_access": "public"
+                  }]
+                }
+                """
+            )
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CatalogURLProtocolStub.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+
+        let page = try await LibraryCatalogService(
+            session: session,
+            enabledBuiltInSources: [.openLibrary]
+        ).search(
+            query: "book",
+            scope: .all
+        )
+
+        XCTAssertEqual(page.resources.count, 1)
+        XCTAssertEqual(page.resources.first?.provider, .openLibrary)
+        XCTAssertTrue(page.unavailableProviders.isEmpty)
+    }
+
+    func testDisabledBuiltInScopeFailsBeforeSendingARequest() async {
+        CatalogURLProtocolStub.handler = { request in
+            XCTFail("Disabled source was queried: \(request.url?.absoluteString ?? "nil")")
+            return Self.response(
+                for: request,
+                statusCode: 500,
+                contentType: "text/plain",
+                body: "Unexpected Request"
+            )
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CatalogURLProtocolStub.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+
+        do {
+            _ = try await LibraryCatalogService(
+                session: session,
+                enabledBuiltInSources: []
+            ).search(
+                query: "book",
+                scope: .internetArchive
+            )
+            XCTFail("Expected the disabled source search to fail")
+        } catch let error as LibraryCatalogServiceError {
+            guard case .sourceDisabled(let name) = error else {
+                return XCTFail("Unexpected catalog error: \(error)")
+            }
+            XCTAssertEqual(name, "Internet Archive")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testAllScopeReportsWhenEverySourceIsDisabled() async {
+        do {
+            _ = try await LibraryCatalogService(
+                enabledBuiltInSources: [],
+                customSources: []
+            ).search(
+                query: "book",
+                scope: .all
+            )
+            XCTFail("Expected an empty source configuration to fail")
+        } catch let error as LibraryCatalogServiceError {
+            guard case .noSourcesEnabled = error else {
+                return XCTFail("Unexpected catalog error: \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     private static func response(
         for request: URLRequest,
         statusCode: Int = 200,

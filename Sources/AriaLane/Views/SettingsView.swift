@@ -36,7 +36,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speed: L10n.string("限速、趋势与调度")
         case .network: L10n.string("分段、重试与 BT")
         case .advanced: L10n.string("代理、TLS 与协议细节")
-        case .resources: L10n.string("管理自定义 OPDS 目录")
+        case .resources: L10n.string("选择内置来源并管理 OPDS 目录")
         case .connection: L10n.string("服务器与连接诊断")
         case .about: L10n.string("版本与版权信息")
         }

@@ -75,6 +75,7 @@ final class AppPreferences: ObservableObject {
         static let seedRatio = "seedRatio"
         static let advancedConfiguration = "aria2AdvancedConfiguration"
         static let customPerformanceProfiles = "aria2CustomPerformanceProfiles"
+        static let disabledBuiltInLibrarySources = "disabledBuiltInLibrarySources"
         static let customLibrarySources = "customLibrarySources"
         static let selectedPerformanceProfileID = "selectedPerformanceProfileID"
         static let didMigrateMetalinkLocaleAutofill =
@@ -310,6 +311,9 @@ final class AppPreferences: ObservableObject {
     @Published private(set) var customPerformanceProfiles: [Aria2PerformanceProfile] = [] {
         didSet { persistPerformanceProfiles() }
     }
+    @Published private(set) var disabledBuiltInLibrarySources: Set<BuiltInLibrarySource> = [] {
+        didSet { persistDisabledBuiltInLibrarySources() }
+    }
     @Published private(set) var customLibrarySources: [CustomLibrarySource] = [] {
         didSet { persistCustomLibrarySources() }
     }
@@ -499,6 +503,11 @@ final class AppPreferences: ObservableObject {
         }?.compactMap {
             try? $0.validated()
         } ?? []
+        disabledBuiltInLibrarySources = Set(
+            defaults.stringArray(
+                forKey: Key.disabledBuiltInLibrarySources
+            )?.compactMap(BuiltInLibrarySource.init(rawValue:)) ?? []
+        )
         selectedPerformanceProfileID = defaults.string(
             forKey: Key.selectedPerformanceProfileID
         ).flatMap(UUID.init(uuidString:))
@@ -866,6 +875,26 @@ final class AppPreferences: ObservableObject {
         customLibrarySources.removeAll { $0.id == id }
     }
 
+    var enabledBuiltInLibrarySources: Set<BuiltInLibrarySource> {
+        Set(BuiltInLibrarySource.allCases)
+            .subtracting(disabledBuiltInLibrarySources)
+    }
+
+    func isBuiltInLibrarySourceEnabled(_ source: BuiltInLibrarySource) -> Bool {
+        !disabledBuiltInLibrarySources.contains(source)
+    }
+
+    func setBuiltInLibrarySourceEnabled(
+        _ source: BuiltInLibrarySource,
+        isEnabled: Bool
+    ) {
+        if isEnabled {
+            disabledBuiltInLibrarySources.remove(source)
+        } else {
+            disabledBuiltInLibrarySources.insert(source)
+        }
+    }
+
     func restoreRecommendedAria2Settings() {
         let recommended = Aria2Configuration.recommended(downloadDirectory: downloadDirectory)
         maxOverallDownloadLimitKiB = recommended.maxOverallDownloadLimitKiB
@@ -1010,6 +1039,13 @@ final class AppPreferences: ObservableObject {
         if let data = try? JSONEncoder().encode(customPerformanceProfiles) {
             defaults.set(data, forKey: Key.customPerformanceProfiles)
         }
+    }
+
+    private func persistDisabledBuiltInLibrarySources() {
+        defaults.set(
+            disabledBuiltInLibrarySources.map(\.rawValue).sorted(),
+            forKey: Key.disabledBuiltInLibrarySources
+        )
     }
 
     private func persistCustomLibrarySources() {

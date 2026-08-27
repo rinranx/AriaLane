@@ -3,6 +3,8 @@ import Foundation
 enum LibraryCatalogServiceError: LocalizedError {
     case allSourcesFailed([String])
     case downloadsUnavailable
+    case noSourcesEnabled
+    case sourceDisabled(String)
     case customSourceUnavailable
 
     var errorDescription: String? {
@@ -11,6 +13,10 @@ enum LibraryCatalogServiceError: LocalizedError {
             L10n.string("所有资源来源均搜索失败：\(messages.joined(separator: "；"))")
         case .downloadsUnavailable:
             L10n.string("此条目没有可验证的直接下载来源")
+        case .noSourcesEnabled:
+            L10n.string("没有启用的资源来源")
+        case .sourceDisabled(let name):
+            L10n.string("“\(name)”已在设置中停用")
         case .customSourceUnavailable:
             L10n.string("自定义来源已停用或不存在")
         }
@@ -22,16 +28,21 @@ struct LibraryCatalogService {
     let projectGutenberg: ProjectGutenbergService
     let openLibrary: OpenLibraryService
     let customOPDS: CustomOPDSService
+    let enabledBuiltInSources: Set<BuiltInLibrarySource>
     let customSources: [CustomLibrarySource]
 
     init(
         session: URLSession = .shared,
+        enabledBuiltInSources: Set<BuiltInLibrarySource> = Set(
+            BuiltInLibrarySource.allCases
+        ),
         customSources: [CustomLibrarySource] = []
     ) {
         internetArchive = InternetArchiveService(session: session)
         projectGutenberg = ProjectGutenbergService(session: session)
         openLibrary = OpenLibraryService(session: session)
         customOPDS = CustomOPDSService(session: session)
+        self.enabledBuiltInSources = enabledBuiltInSources
         self.customSources = customSources
     }
 
@@ -41,10 +52,13 @@ struct LibraryCatalogService {
     ) async throws -> LibraryResourceSearchPage {
         switch scope {
         case .internetArchive:
+            try ensureEnabled(.internetArchive)
             return try await internetArchive.search(query: query, limit: 30)
         case .projectGutenberg:
+            try ensureEnabled(.projectGutenberg)
             return try await projectGutenberg.search(query: query, limit: 25)
         case .openLibrary:
+            try ensureEnabled(.openLibrary)
             return try await openLibrary.search(query: query, limit: 30)
         case .custom(let id):
             guard let source = customSources.first(where: {
@@ -65,8 +79,10 @@ struct LibraryCatalogService {
     func downloads(for resource: LibraryResource) async throws -> LibraryResourceDownloads {
         switch resource.downloadLocator {
         case .internetArchive(let identifier):
+            try ensureEnabled(.internetArchive)
             return try await internetArchive.downloads(identifier: identifier)
         case .projectGutenberg(let bookID):
+            try ensureEnabled(.projectGutenberg)
             return try await projectGutenberg.downloads(bookID: bookID)
         case .custom(let downloads):
             return downloads
@@ -76,9 +92,18 @@ struct LibraryCatalogService {
     }
 
     private func searchAll(query: String) async throws -> LibraryResourceSearchPage {
-        async let archiveOutcome = internetArchiveOutcome(query: query)
-        async let gutenbergOutcome = projectGutenbergOutcome(query: query)
-        async let openLibraryOutcome = openLibraryOutcome(query: query)
+        async let archiveOutcome = builtInOutcome(
+            source: .internetArchive,
+            query: query
+        )
+        async let gutenbergOutcome = builtInOutcome(
+            source: .projectGutenberg,
+            query: query
+        )
+        async let openLibraryOutcome = builtInOutcome(
+            source: .openLibrary,
+            query: query
+        )
         async let customOutcomeList = customOutcomes(query: query)
 
         let (archive, gutenberg, openLibrary, custom) = await (
@@ -87,7 +112,12 @@ struct LibraryCatalogService {
             openLibraryOutcome,
             customOutcomeList
         )
-        let outcomes = [archive, gutenberg, openLibrary] + custom
+        let outcomes = [archive, gutenberg, openLibrary].compactMap { $0 } + custom
+
+        guard !outcomes.isEmpty else {
+            throw LibraryCatalogServiceError.noSourcesEnabled
+        }
+
         let successfulPages = outcomes.compactMap(\.page)
 
         guard !successfulPages.isEmpty else {
@@ -105,50 +135,41 @@ struct LibraryCatalogService {
         )
     }
 
-    private func internetArchiveOutcome(query: String) async -> ProviderSearchOutcome {
+    private func builtInOutcome(
+        source: BuiltInLibrarySource,
+        query: String
+    ) async -> ProviderSearchOutcome? {
+        guard enabledBuiltInSources.contains(source) else { return nil }
+
         do {
+            let page: LibraryResourceSearchPage
+            switch source {
+            case .internetArchive:
+                page = try await internetArchive.search(query: query, limit: 15)
+            case .projectGutenberg:
+                page = try await projectGutenberg.search(query: query, limit: 15)
+            case .openLibrary:
+                page = try await openLibrary.search(query: query, limit: 15)
+            }
+
             return ProviderSearchOutcome(
-                provider: .internetArchive,
-                page: try await internetArchive.search(query: query, limit: 15),
+                provider: source.provider,
+                page: page,
                 errorMessage: nil
             )
         } catch {
             return ProviderSearchOutcome(
-                provider: .internetArchive,
+                provider: source.provider,
                 page: nil,
                 errorMessage: error.localizedDescription
             )
         }
     }
 
-    private func projectGutenbergOutcome(query: String) async -> ProviderSearchOutcome {
-        do {
-            return ProviderSearchOutcome(
-                provider: .projectGutenberg,
-                page: try await projectGutenberg.search(query: query, limit: 15),
-                errorMessage: nil
-            )
-        } catch {
-            return ProviderSearchOutcome(
-                provider: .projectGutenberg,
-                page: nil,
-                errorMessage: error.localizedDescription
-            )
-        }
-    }
-
-    private func openLibraryOutcome(query: String) async -> ProviderSearchOutcome {
-        do {
-            return ProviderSearchOutcome(
-                provider: .openLibrary,
-                page: try await openLibrary.search(query: query, limit: 15),
-                errorMessage: nil
-            )
-        } catch {
-            return ProviderSearchOutcome(
-                provider: .openLibrary,
-                page: nil,
-                errorMessage: error.localizedDescription
+    private func ensureEnabled(_ source: BuiltInLibrarySource) throws {
+        guard enabledBuiltInSources.contains(source) else {
+            throw LibraryCatalogServiceError.sourceDisabled(
+                source.provider.title
             )
         }
     }

@@ -7,6 +7,7 @@ struct TransferListView: View {
     @Binding var selectedGIDs: Set<String>
     @Binding var searchText: String
     let onAdd: () -> Void
+    let onTaskDoubleClick: (String) -> Void
 
     @SceneStorage("transferSortField") private var sortFieldRaw = TransferSortField.queue.rawValue
     @SceneStorage("transferSortDirection")
@@ -118,9 +119,9 @@ struct TransferListView: View {
                         .tag(item.gid)
                         .listRowInsets(
                             EdgeInsets(
-                                top: displayMode == .compact ? 2 : 5,
+                                top: displayMode == .compact ? 2 : 4,
                                 leading: LaneMetric.contentPadding,
-                                bottom: displayMode == .compact ? 2 : 5,
+                                bottom: displayMode == .compact ? 2 : 4,
                                 trailing: LaneMetric.contentPadding
                             )
                         )
@@ -128,9 +129,7 @@ struct TransferListView: View {
                         .listRowBackground(Color.clear)
                         .simultaneousGesture(
                             TapGesture(count: 2).onEnded {
-                                if item.status == .complete {
-                                    store.reveal(item)
-                                }
+                                onTaskDoubleClick(item.gid)
                             }
                         )
                     }
@@ -298,16 +297,21 @@ private struct TransferListUtilityBar: View {
                 Button(action: onResume) {
                     Label(L10n.string("继续"), systemImage: "play.fill")
                 }
+                .buttonStyle(LaneCompactActionButtonStyle())
                 .disabled(!selectedItems.contains(where: \.isResumable))
 
                 Button(action: onRetry) {
                     Label(L10n.string("重试"), systemImage: "arrow.clockwise")
                 }
+                .buttonStyle(LaneCompactActionButtonStyle())
                 .disabled(!selectedItems.contains(where: \.isRetryable))
 
                 Button(role: .destructive, action: onRemove) {
                     Label(L10n.string("移除"), systemImage: "trash")
                 }
+                .buttonStyle(
+                    LaneCompactActionButtonStyle(tone: .destructive)
+                )
             }
         }
         .font(LaneFont.interface(11))

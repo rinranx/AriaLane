@@ -24,9 +24,9 @@ Author: rinran ([a@rinran.me](mailto:a@rinran.me))
 - Extract and filter download links from one or more web pages, with optional
   JavaScript rendering
 - Read download links from QR codes in image files or the photo library
-- Search public catalogs across Internet Archive, Project Gutenberg's official
-  OPDS feed, and Open Library; add multiple custom OPDS 1.x search sources and
-  optionally filter by source
+- Search public catalogs across enabled Internet Archive, Project Gutenberg,
+  and Open Library sources; toggle each built-in source independently, add
+  multiple custom OPDS 1.x search sources, and optionally filter by source
 - Recheck rights and access before download: Internet Archive files require a
   verifiable Creative Commons or public-domain license; Project Gutenberg files
   require an explicit “Public domain in the USA” notice; Open Library entries

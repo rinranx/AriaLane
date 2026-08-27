@@ -1,5 +1,40 @@
 import Foundation
 
+enum BuiltInLibrarySource: String, CaseIterable, Codable, Identifiable, Hashable, Sendable {
+    case internetArchive
+    case projectGutenberg
+    case openLibrary
+
+    var id: String { rawValue }
+
+    var provider: LibraryResourceProvider {
+        switch self {
+        case .internetArchive: .internetArchive
+        case .projectGutenberg: .projectGutenberg
+        case .openLibrary: .openLibrary
+        }
+    }
+
+    var searchScope: LibrarySearchScope {
+        switch self {
+        case .internetArchive: .internetArchive
+        case .projectGutenberg: .projectGutenberg
+        case .openLibrary: .openLibrary
+        }
+    }
+
+    var browseURL: URL {
+        switch self {
+        case .internetArchive:
+            URL(string: "https://archive.org/details/texts")!
+        case .projectGutenberg:
+            URL(string: "https://www.gutenberg.org/ebooks/")!
+        case .openLibrary:
+            URL(string: "https://openlibrary.org/search")!
+        }
+    }
+}
+
 struct LibraryResourceProvider: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let title: String
@@ -21,11 +56,7 @@ struct LibraryResourceProvider: Identifiable, Equatable, Hashable, Sendable {
         systemImage: "books.vertical"
     )
 
-    static let builtInCases: [LibraryResourceProvider] = [
-        .internetArchive,
-        .projectGutenberg,
-        .openLibrary
-    ]
+    static let builtInCases = BuiltInLibrarySource.allCases.map(\.provider)
 
     static func custom(_ source: CustomLibrarySource) -> LibraryResourceProvider {
         LibraryResourceProvider(
@@ -43,12 +74,8 @@ enum LibrarySearchScope: Identifiable, Equatable, Hashable, Sendable {
     case openLibrary
     case custom(UUID)
 
-    static let builtInCases: [LibrarySearchScope] = [
-        .all,
-        .internetArchive,
-        .projectGutenberg,
-        .openLibrary
-    ]
+    static let builtInCases: [LibrarySearchScope] =
+        [.all] + BuiltInLibrarySource.allCases.map(\.searchScope)
 
     var id: String { storageValue }
 
@@ -96,6 +123,15 @@ enum LibrarySearchScope: Identifiable, Equatable, Hashable, Sendable {
         case .projectGutenberg: LibraryResourceProvider.projectGutenberg.systemImage
         case .openLibrary: LibraryResourceProvider.openLibrary.systemImage
         case .custom: "books.vertical.circle"
+        }
+    }
+
+    var builtInSource: BuiltInLibrarySource? {
+        switch self {
+        case .all, .custom: nil
+        case .internetArchive: .internetArchive
+        case .projectGutenberg: .projectGutenberg
+        case .openLibrary: .openLibrary
         }
     }
 }

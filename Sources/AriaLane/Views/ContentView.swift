@@ -30,6 +30,8 @@ struct ContentView: View {
     @State private var composerRequestID = UUID()
     @State private var isEditingSelectedSmartFolder = false
     @State private var windowContentSize = CGSize(width: 1_120, height: 720)
+    @State private var isInspectorPresented = false
+    @State private var inspectorSelectionTransition: InspectorSelectionTransition?
 
     var body: some View {
         lifecycleView
@@ -86,20 +88,26 @@ struct ContentView: View {
                     } else {
                         TransferListView(
                             filter: selectedFilter,
-                            selectedGIDs: $viewState.selectedGIDs,
+                            selectedGIDs: transferSelectionBinding,
                             searchText: $transferSearchText,
-                            onAdd: { openComposer() }
+                            onAdd: { openComposer() },
+                            onTaskDoubleClick: toggleTransferInspector
                         )
                     }
                 }
-                .inspector(isPresented: inspectorBinding) {
-                    if let selectedItem {
-                        TransferInspectorView(item: selectedItem)
-                            .inspectorColumnWidth(min: 260, ideal: 300, max: 360)
-                    } else if let selectedHistoricalEntity {
-                        TaskEntityInspectorView(entity: selectedHistoricalEntity)
-                            .inspectorColumnWidth(min: 260, ideal: 300, max: 360)
-                    }
+
+                if isInspectorVisible {
+                    Divider()
+                        .opacity(0.65)
+
+                    inspectorPanel
+                        .frame(
+                            width: min(
+                                340,
+                                max(300, geometry.size.width * 0.28)
+                            )
+                        )
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -124,6 +132,22 @@ struct ContentView: View {
             value: isSidebarCollapsed
         )
         .tint(LaneColor.accent)
+    }
+
+    @ViewBuilder
+    private var inspectorPanel: some View {
+        if let selectedItem {
+            TransferInspectorView(
+                item: selectedItem,
+                onClose: closeInspector
+            )
+            .id(selectedItem.gid)
+        } else if let selectedHistoricalEntity {
+            TaskEntityInspectorView(
+                entity: selectedHistoricalEntity,
+                onClose: closeInspector
+            )
+        }
     }
 
     private var presentedView: some View {
@@ -213,6 +237,8 @@ struct ContentView: View {
             viewState.selectedGIDs = [gid]
             viewState.selectedEntityIDs.removeAll()
             store.selectedTransferGID = gid
+            inspectorSelectionTransition = nil
+            isInspectorPresented = true
         }
         .onOpenURL { url in
             if DownloadImportKind(url: url) != nil {
@@ -239,12 +265,18 @@ struct ContentView: View {
             let gid = gids.count == 1 ? gids.first : nil
             selectedGID = gid
             store.selectedTransferGID = gid
+            if gid == nil {
+                closeInspector()
+            }
         }
         .onChange(of: viewState.selectedEntityIDs) { _, ids in
             guard sidebarSelection.fixedFilter == nil else { return }
             let item = liveTransfer(forSelectedEntityIDs: ids)
             selectedGID = item?.gid
             store.selectedTransferGID = item?.gid
+            if ids.count != 1 {
+                closeInspector()
+            }
         }
         .onChange(of: store.transfers.map(\.gid)) { _, availableGIDs in
             viewState.selectedGIDs.formIntersection(Set(availableGIDs))
@@ -360,13 +392,14 @@ struct ContentView: View {
     private var organizedTasks: some View {
         OrganizedTasksView(
             selection: sidebarSelection,
-            selectedEntityIDs: $viewState.selectedEntityIDs,
+            selectedEntityIDs: entitySelectionBinding,
             searchText: $organizedTaskSearchText,
             onEditSelection: {
                 if case .smartFolder = sidebarSelection {
                     isEditingSelectedSmartFolder = true
                 }
-            }
+            },
+            onTaskDoubleClick: toggleEntityInspector
         )
     }
 
@@ -430,6 +463,7 @@ struct ContentView: View {
         Binding(
             get: { sidebarSelection },
             set: { selection in
+                closeInspector()
                 viewState.selectedGIDs.removeAll()
                 viewState.selectedEntityIDs.removeAll()
                 selectedGID = nil
@@ -474,15 +508,22 @@ struct ContentView: View {
         return selectedEntity
     }
 
-    private var inspectorBinding: Binding<Bool> {
+    private var isInspectorVisible: Bool {
+        isInspectorPresented
+            && (selectedItem != nil || selectedHistoricalEntity != nil)
+    }
+
+    private var transferSelectionBinding: Binding<Set<String>> {
         Binding(
-            get: { selectedItem != nil || selectedHistoricalEntity != nil },
-            set: { isPresented in
-                if !isPresented {
-                    viewState.selectedGIDs.removeAll()
-                    viewState.selectedEntityIDs.removeAll()
-                }
-            }
+            get: { viewState.selectedGIDs },
+            set: updateTransferSelection
+        )
+    }
+
+    private var entitySelectionBinding: Binding<Set<UUID>> {
+        Binding(
+            get: { viewState.selectedEntityIDs },
+            set: updateEntitySelection
         )
     }
 
@@ -519,6 +560,109 @@ struct ContentView: View {
             in: store.transfers,
             profileID: preferences.activeServerProfileID
         )
+    }
+
+    private func updateTransferSelection(_ gids: Set<String>) {
+        let previousGIDs = viewState.selectedGIDs
+        if previousGIDs != gids {
+            recordInspectorSelectionTransition(
+                from: previousGIDs.single.map(InspectorTaskIdentifier.transfer),
+                to: gids.single.map(InspectorTaskIdentifier.transfer)
+            )
+        }
+
+        viewState.selectedGIDs = gids
+        if gids.count != 1 {
+            closeInspector()
+        }
+    }
+
+    private func updateEntitySelection(_ ids: Set<UUID>) {
+        let previousIDs = viewState.selectedEntityIDs
+        if previousIDs != ids {
+            recordInspectorSelectionTransition(
+                from: previousIDs.single.map(InspectorTaskIdentifier.entity),
+                to: ids.single.map(InspectorTaskIdentifier.entity)
+            )
+        }
+
+        viewState.selectedEntityIDs = ids
+        if ids.count != 1 {
+            closeInspector()
+        }
+    }
+
+    private func recordInspectorSelectionTransition(
+        from previous: InspectorTaskIdentifier?,
+        to current: InspectorTaskIdentifier?
+    ) {
+        guard isInspectorPresented,
+              let previous,
+              let current,
+              previous != current else {
+            inspectorSelectionTransition = nil
+            return
+        }
+
+        inspectorSelectionTransition = InspectorSelectionTransition(
+            previous: previous,
+            current: current,
+            timestamp: ProcessInfo.processInfo.systemUptime
+        )
+    }
+
+    private func toggleTransferInspector(_ gid: String) {
+        toggleInspector(for: .transfer(gid)) {
+            viewState.selectedEntityIDs.removeAll()
+            viewState.selectedGIDs = [gid]
+        }
+    }
+
+    private func toggleEntityInspector(_ id: UUID) {
+        toggleInspector(for: .entity(id)) {
+            viewState.selectedGIDs.removeAll()
+            viewState.selectedEntityIDs = [id]
+        }
+    }
+
+    private func toggleInspector(
+        for task: InspectorTaskIdentifier,
+        selectTask: () -> Void
+    ) {
+        let shouldClose = inspectorWasPresented(for: task)
+        inspectorSelectionTransition = nil
+        selectTask()
+
+        if shouldClose {
+            closeInspector()
+        } else {
+            isInspectorPresented = true
+        }
+    }
+
+    private func inspectorWasPresented(for task: InspectorTaskIdentifier) -> Bool {
+        guard isInspectorPresented else { return false }
+
+        if let transition = inspectorSelectionTransition,
+           transition.current == task,
+           ProcessInfo.processInfo.systemUptime - transition.timestamp
+               <= NSEvent.doubleClickInterval + 0.12 {
+            return transition.previous == task
+        }
+
+        return selectedInspectorTask == task
+    }
+
+    private var selectedInspectorTask: InspectorTaskIdentifier? {
+        if sidebarSelection.fixedFilter == nil {
+            return viewState.selectedEntityIDs.single.map(InspectorTaskIdentifier.entity)
+        }
+        return viewState.selectedGIDs.single.map(InspectorTaskIdentifier.transfer)
+    }
+
+    private func closeInspector() {
+        isInspectorPresented = false
+        inspectorSelectionTransition = nil
     }
 
     private func limitTitle(_ kibibytesPerSecond: Int) -> String {
@@ -559,6 +703,23 @@ struct ContentView: View {
 private final class ContentViewState: ObservableObject {
     @Published var selectedGIDs: Set<String> = []
     @Published var selectedEntityIDs: Set<UUID> = []
+}
+
+private enum InspectorTaskIdentifier: Equatable {
+    case transfer(String)
+    case entity(UUID)
+}
+
+private struct InspectorSelectionTransition {
+    let previous: InspectorTaskIdentifier
+    let current: InspectorTaskIdentifier
+    let timestamp: TimeInterval
+}
+
+private extension Set {
+    var single: Element? {
+        count == 1 ? first : nil
+    }
 }
 
 private struct SidebarResizeHandle: View {

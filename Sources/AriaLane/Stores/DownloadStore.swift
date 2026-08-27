@@ -1566,6 +1566,11 @@ final class DownloadStore: ObservableObject {
     }
 
     func taskSpeedLimits(for item: TransferItem) async -> TaskSpeedLimits? {
+        guard let options = await taskOptions(for: item) else { return nil }
+        return TaskSpeedLimits(options: options)
+    }
+
+    func taskOptions(for item: TransferItem) async -> [String: String]? {
         if !hasActiveConnection {
             await reconnect()
         }
@@ -1575,8 +1580,7 @@ final class DownloadStore: ObservableObject {
         }
 
         do {
-            let options = try await client.taskOptions(gid: item.gid)
-            return TaskSpeedLimits(options: options)
+            return try await client.taskOptions(gid: item.gid)
         } catch {
             postNotice(error.localizedDescription, kind: .error)
             return nil

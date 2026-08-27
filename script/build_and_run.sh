@@ -12,6 +12,7 @@ BUILD_ROOT="/private/tmp/AriaLaneSwiftBuild"
 STAGE_DIR="/private/tmp/AriaLaneDevBundle"
 APP_BUNDLE="$STAGE_DIR/$APP_NAME.app"
 DIST_APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+DIST_APP_BINARY="$DIST_APP_BUNDLE/Contents/MacOS/$APP_NAME"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
@@ -106,7 +107,7 @@ if [[ "$DIST_SIGNATURE_VALID" != true ]]; then
 fi
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  /usr/bin/open -n "$DIST_APP_BUNDLE"
 }
 
 case "$MODE" in
@@ -117,7 +118,7 @@ case "$MODE" in
     echo "$DIST_APP_BUNDLE"
     ;;
   --debug|debug)
-    lldb -- "$APP_BINARY"
+    lldb -- "$DIST_APP_BINARY"
     ;;
   --logs|logs)
     open_app

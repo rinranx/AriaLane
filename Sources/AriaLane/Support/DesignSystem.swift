@@ -90,6 +90,132 @@ enum LaneMetric {
     static let contentPadding: CGFloat = 24
 }
 
+struct LaneCompactActionButtonStyle: ButtonStyle {
+    enum Tone {
+        case neutral
+        case accent
+        case destructive
+    }
+
+    enum Surface {
+        case quiet
+        case tinted
+    }
+
+    var tone: Tone = .neutral
+    var surface: Surface = .quiet
+    var minimumHeight: CGFloat = 26
+    var horizontalPadding: CGFloat = 10
+
+    func makeBody(configuration: Configuration) -> some View {
+        LaneCompactActionButtonStyleBody(
+            configuration: configuration,
+            tone: tone,
+            surface: surface,
+            minimumHeight: minimumHeight,
+            horizontalPadding: horizontalPadding
+        )
+    }
+}
+
+private struct LaneCompactActionButtonStyleBody: View {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovering = false
+
+    let configuration: ButtonStyleConfiguration
+    let tone: LaneCompactActionButtonStyle.Tone
+    let surface: LaneCompactActionButtonStyle.Surface
+    let minimumHeight: CGFloat
+    let horizontalPadding: CGFloat
+
+    var body: some View {
+        configuration.label
+            .font(LaneFont.interface(10.5, weight: .medium))
+            .foregroundStyle(foregroundColor)
+            .padding(.horizontal, horizontalPadding)
+            .frame(minHeight: minimumHeight)
+            .background(
+                backgroundColor,
+                in: RoundedRectangle(cornerRadius: 7.5, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 7.5, style: .continuous)
+                    .strokeBorder(borderColor, lineWidth: 1)
+            }
+            .contentShape(
+                RoundedRectangle(cornerRadius: 7.5, style: .continuous)
+            )
+            .scaleEffect(
+                isEnabled && configuration.isPressed && !reduceMotion
+                    ? 0.985
+                    : 1
+            )
+            .onHover { isHovering = $0 }
+            .animation(
+                reduceMotion ? nil : .easeOut(duration: 0.11),
+                value: configuration.isPressed
+            )
+            .animation(.easeOut(duration: 0.12), value: isHovering)
+    }
+
+    private var foregroundColor: Color {
+        guard isEnabled else {
+            return Color(nsColor: .tertiaryLabelColor)
+        }
+
+        switch tone {
+        case .neutral:
+            return LaneColor.label1
+        case .accent:
+            return LaneColor.accent
+        case .destructive:
+            return LaneColor.danger
+        }
+    }
+
+    private var backgroundColor: Color {
+        guard isEnabled else {
+            return LaneColor.fill1.opacity(0.72)
+        }
+
+        let strength: Double
+        if configuration.isPressed {
+            strength = surface == .tinted ? 0.17 : 0.09
+        } else if isHovering {
+            strength = surface == .tinted ? 0.13 : 0.065
+        } else {
+            strength = surface == .tinted ? 0.085 : 0.03
+        }
+
+        return toneColor.opacity(strength)
+    }
+
+    private var borderColor: Color {
+        guard isEnabled else {
+            return LaneColor.line.opacity(0.72)
+        }
+
+        switch tone {
+        case .neutral:
+            return Color.primary.opacity(isHovering ? 0.16 : 0.09)
+        case .accent, .destructive:
+            return toneColor.opacity(isHovering ? 0.36 : 0.22)
+        }
+    }
+
+    private var toneColor: Color {
+        switch tone {
+        case .neutral:
+            return Color.primary
+        case .accent:
+            return LaneColor.accent
+        case .destructive:
+            return LaneColor.danger
+        }
+    }
+}
+
 enum LaneAdaptiveSheetSize {
     static func downloadComposer(in availableSize: CGSize) -> CGSize {
         CGSize(

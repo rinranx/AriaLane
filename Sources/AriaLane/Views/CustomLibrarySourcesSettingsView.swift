@@ -9,7 +9,8 @@ struct CustomLibrarySourcesSettingsPane: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 explanationCard
-                sourcesCard
+                builtInSourcesCard
+                customSourcesCard
             }
             .padding(22)
         }
@@ -46,11 +47,11 @@ struct CustomLibrarySourcesSettingsPane: View {
                 )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(L10n.string("自定义 OPDS 来源"))
+                Text(L10n.string("选择资源来源"))
                     .font(LaneFont.label(14))
                 Text(
                     L10n.string(
-                        "添加支持 OPDS 1.x 的图书目录；已启用来源会出现在资源搜索的来源菜单中。"
+                        "可分别启用或停用内置来源，也可添加多个自定义 OPDS 1.x 图书目录。"
                     )
                 )
                 .font(LaneFont.interface(10.5))
@@ -70,11 +71,42 @@ struct CustomLibrarySourcesSettingsPane: View {
         .laneSurface(cornerRadius: 13)
     }
 
-    private var sourcesCard: some View {
+    private var builtInSourcesCard: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.string("内置来源"))
+                    .font(LaneFont.label(13))
+                Text(
+                    L10n.string(
+                        "关闭后，该来源不会出现在菜单中，也不会被“全部来源”查询。"
+                    )
+                )
+                .font(LaneFont.interface(10))
+                .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+
+            Divider()
+
+            VStack(spacing: 0) {
+                ForEach(BuiltInLibrarySource.allCases) { source in
+                    builtInSourceRow(source)
+                    if source != BuiltInLibrarySource.allCases.last {
+                        Divider()
+                            .padding(.leading, 52)
+                    }
+                }
+            }
+        }
+        .laneSurface(cornerRadius: 13)
+    }
+
+    private var customSourcesCard: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(L10n.string("已添加来源"))
+                    Text(L10n.string("自定义 OPDS 来源"))
                         .font(LaneFont.label(13))
                     Text(L10n.string("可添加多个来源，并分别启用或停用。"))
                         .font(LaneFont.interface(10))
@@ -105,7 +137,7 @@ struct CustomLibrarySourcesSettingsPane: View {
                         .foregroundStyle(.tertiary)
                     Text(L10n.string("还没有自定义来源"))
                         .font(LaneFont.label(12))
-                    Text(L10n.string("添加后可与内置的三个开放来源一起搜索。"))
+                    Text(L10n.string("添加后可与已启用的内置来源一起搜索。"))
                         .font(LaneFont.interface(10))
                         .foregroundStyle(.secondary)
                 }
@@ -124,6 +156,47 @@ struct CustomLibrarySourcesSettingsPane: View {
             }
         }
         .laneSurface(cornerRadius: 13)
+    }
+
+    private func builtInSourceRow(_ source: BuiltInLibrarySource) -> some View {
+        let provider = source.provider
+        let isEnabled = preferences.isBuiltInLibrarySourceEnabled(source)
+
+        return HStack(spacing: 12) {
+            Toggle(
+                "",
+                isOn: Binding(
+                    get: { preferences.isBuiltInLibrarySourceEnabled(source) },
+                    set: {
+                        preferences.setBuiltInLibrarySourceEnabled(
+                            source,
+                            isEnabled: $0
+                        )
+                    }
+                )
+            )
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+
+            Image(systemName: provider.systemImage)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isEnabled ? LaneColor.accent : .secondary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(provider.title)
+                    .font(LaneFont.interface(11.5, weight: .semibold))
+                Text(source.browseURL.host ?? source.browseURL.absoluteString)
+                    .font(LaneFont.utility(9.5, weight: .regular))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 58)
+        .opacity(isEnabled ? 1 : 0.62)
     }
 
     private func sourceRow(_ source: CustomLibrarySource) -> some View {

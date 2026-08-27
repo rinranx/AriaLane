@@ -11,7 +11,7 @@ struct TransferRowView: View {
     let displayMode: TaskListDisplayMode
 
     var body: some View {
-        HStack(spacing: displayMode == .compact ? 11 : 15) {
+        HStack(spacing: displayMode == .compact ? 11 : 12) {
             if item.isQueueMovable && allowsQueueReordering {
                 Image(systemName: "line.3.horizontal")
                     .font(
@@ -28,13 +28,13 @@ struct TransferRowView: View {
 
             VStack(
                 alignment: .leading,
-                spacing: displayMode == .compact ? 5 : 9
+                spacing: displayMode == .compact ? 5 : 6
             ) {
                 HStack(spacing: 9) {
                     Text(item.displayName)
                         .font(
                             LaneFont.label(
-                                displayMode == .compact ? 11.5 : 14
+                                displayMode == .compact ? 11.5 : 13
                             )
                         )
                         .lineLimit(1)
@@ -53,7 +53,7 @@ struct TransferRowView: View {
                 SegmentedProgressView(
                     progress: item.progress,
                     status: item.status,
-                    height: displayMode == .compact ? 3 : 5
+                    height: displayMode == .compact ? 3 : 4
                 )
 
                 if displayMode == .card {
@@ -111,7 +111,7 @@ struct TransferRowView: View {
 
             VStack(
                 alignment: .trailing,
-                spacing: displayMode == .compact ? 6 : 12
+                spacing: displayMode == .compact ? 6 : 8
             ) {
                 if displayMode == .card {
                     if item.status == .active {
@@ -212,7 +212,7 @@ struct TransferRowView: View {
             )
         }
         .padding(.horizontal, displayMode == .compact ? 11 : 16)
-        .padding(.vertical, displayMode == .compact ? 5 : 14)
+        .padding(.vertical, displayMode == .compact ? 5 : 9)
         .background {
             RoundedRectangle(
                 cornerRadius: rowCornerRadius,
@@ -302,22 +302,22 @@ struct TransferRowView: View {
     private var statusGlyph: some View {
         ZStack {
             RoundedRectangle(
-                cornerRadius: displayMode == .compact ? 8 : 11,
+                cornerRadius: displayMode == .compact ? 8 : 9,
                 style: .continuous
             )
                 .fill(glyphColor.opacity(0.1))
             Image(systemName: item.status.systemImage)
                 .font(
                     .system(
-                        size: displayMode == .compact ? 10 : 14,
+                        size: displayMode == .compact ? 10 : 12,
                         weight: .semibold
                     )
                 )
                 .foregroundStyle(glyphColor)
         }
         .frame(
-            width: displayMode == .compact ? 26 : 40,
-            height: displayMode == .compact ? 26 : 40
+            width: displayMode == .compact ? 26 : 34,
+            height: displayMode == .compact ? 26 : 34
         )
     }
 

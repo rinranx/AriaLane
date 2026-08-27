@@ -163,6 +163,58 @@ final class PreferencesPersistenceTests: XCTestCase {
     }
 
     @MainActor
+    func testBuiltInLibrarySourceTogglesPersistIndependently() {
+        let suiteName = "BuiltInLibrarySourceTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let preferences = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+
+        XCTAssertEqual(
+            preferences.enabledBuiltInLibrarySources,
+            Set(BuiltInLibrarySource.allCases)
+        )
+
+        preferences.setBuiltInLibrarySourceEnabled(
+            .internetArchive,
+            isEnabled: false
+        )
+        preferences.setBuiltInLibrarySourceEnabled(
+            .openLibrary,
+            isEnabled: false
+        )
+
+        let relaunched = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+
+        XCTAssertEqual(
+            relaunched.enabledBuiltInLibrarySources,
+            [.projectGutenberg]
+        )
+
+        relaunched.setBuiltInLibrarySourceEnabled(
+            .openLibrary,
+            isEnabled: true
+        )
+
+        let relaunchedAgain = AppPreferences(
+            defaults: defaults,
+            keychain: .inMemory
+        )
+        XCTAssertEqual(
+            relaunchedAgain.enabledBuiltInLibrarySources,
+            [.projectGutenberg, .openLibrary]
+        )
+    }
+
+    @MainActor
     func testCertificateVerificationIsDisabledByDefault() {
         let suiteName = "CertificateVerificationDefaultsTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

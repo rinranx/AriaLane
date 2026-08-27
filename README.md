@@ -22,8 +22,9 @@ AriaLane 是一个简约、原生的 macOS aria2 桌面客户端。它既能自�
 - 添加 HTTP、HTTPS、FTP、SFTP、magnet 链接
 - 从一个或多个网页提取下载链接，支持结果筛选与可选 JavaScript 渲染
 - 从图片文件或照片图库识别二维码中的下载链接
-- 同时搜索 Internet Archive、Project Gutenberg 官方 OPDS 与 Open Library
-  的公开馆藏，也可添加多个自定义 OPDS 1.x 搜索来源并按来源筛选
+- 同时搜索已启用的 Internet Archive、Project Gutenberg 官方 OPDS 与 Open
+  Library 公开馆藏；三个内置来源均可独立开关，也可添加多个自定义 OPDS 1.x
+  搜索来源并按来源筛选
 - 下载前复核权利与访问状态：Internet Archive 仅接受可验证的 Creative
   Commons / 公版许可；Project Gutenberg 仅直接下载明确标注“美国公版”的版本；
   Open Library 与自定义 OPDS 条目无法验证开放权利时只打开原站页面

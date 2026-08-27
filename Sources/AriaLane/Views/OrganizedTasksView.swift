@@ -10,6 +10,7 @@ struct OrganizedTasksView: View {
     @Binding var selectedEntityIDs: Set<UUID>
     @Binding var searchText: String
     let onEditSelection: () -> Void
+    let onTaskDoubleClick: (UUID) -> Void
 
     @SceneStorage("organizedTaskSortField")
     private var sortFieldRaw = TaskEntitySortField.addedDate.rawValue
@@ -236,14 +237,19 @@ struct OrganizedTasksView: View {
                     .tag(entity.id)
                     .listRowInsets(
                         EdgeInsets(
-                            top: displayMode == .compact ? 2 : 5,
+                            top: displayMode == .compact ? 2 : 4,
                             leading: LaneMetric.contentPadding,
-                            bottom: displayMode == .compact ? 2 : 5,
+                            bottom: displayMode == .compact ? 2 : 4,
                             trailing: LaneMetric.contentPadding
                         )
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .simultaneousGesture(
+                        TapGesture(count: 2).onEnded {
+                            onTaskDoubleClick(entity.id)
+                        }
+                    )
             }
         }
         .listStyle(.plain)
@@ -273,18 +279,11 @@ struct OrganizedTasksView: View {
 
                 if !entity.tagIDs.isEmpty && displayMode == .card {
                     TaskTagBadgeRow(entityID: entity.id, limit: 3)
-                        .padding(.leading, 72)
+                        .padding(.leading, 62)
                         .padding(.top, -9)
                         .padding(.bottom, 9)
                 }
             }
-            .simultaneousGesture(
-                TapGesture(count: 2).onEnded {
-                    if item.status == .complete {
-                        store.reveal(item)
-                    }
-                }
-            )
         } else {
             HistoricalTaskEntityRow(
                 entity: entity,
@@ -517,36 +516,36 @@ private struct HistoricalTaskEntityRow: View {
     let onRemove: () -> Void
 
     var body: some View {
-        HStack(spacing: displayMode == .compact ? 11 : 15) {
+        HStack(spacing: displayMode == .compact ? 11 : 12) {
             ZStack {
                 RoundedRectangle(
-                    cornerRadius: displayMode == .compact ? 8 : 11,
+                    cornerRadius: displayMode == .compact ? 8 : 9,
                     style: .continuous
                 )
                     .fill(statusColor.opacity(0.1))
                 Image(systemName: entity.lifecycle.systemImage)
                     .font(
                         .system(
-                            size: displayMode == .compact ? 10 : 14,
+                            size: displayMode == .compact ? 10 : 12,
                             weight: .semibold
                         )
                     )
                     .foregroundStyle(statusColor)
             }
             .frame(
-                width: displayMode == .compact ? 26 : 40,
-                height: displayMode == .compact ? 26 : 40
+                width: displayMode == .compact ? 26 : 34,
+                height: displayMode == .compact ? 26 : 34
             )
 
             VStack(
                 alignment: .leading,
-                spacing: displayMode == .compact ? 4 : 7
+                spacing: displayMode == .compact ? 4 : 5
             ) {
                 HStack(spacing: 8) {
                     Text(entity.displayName)
                         .font(
                             LaneFont.label(
-                                displayMode == .compact ? 11.5 : 14
+                                displayMode == .compact ? 11.5 : 13
                             )
                         )
                         .lineLimit(1)
@@ -562,11 +561,11 @@ private struct HistoricalTaskEntityRow: View {
                         .foregroundStyle(statusColor)
                         .padding(
                             .horizontal,
-                            displayMode == .compact ? 6 : 7
+                            displayMode == .compact ? 6 : 6.5
                         )
                         .padding(
                             .vertical,
-                            displayMode == .compact ? 2 : 3
+                            displayMode == .compact ? 2 : 2.5
                         )
                         .background(statusColor.opacity(0.1), in: Capsule())
 
@@ -592,7 +591,7 @@ private struct HistoricalTaskEntityRow: View {
 
             VStack(
                 alignment: .trailing,
-                spacing: displayMode == .compact ? 4 : 9
+                spacing: displayMode == .compact ? 4 : 6
             ) {
                 if displayMode == .card {
                     Text(
@@ -658,7 +657,7 @@ private struct HistoricalTaskEntityRow: View {
             )
         }
         .padding(.horizontal, displayMode == .compact ? 11 : 16)
-        .padding(.vertical, displayMode == .compact ? 5 : 14)
+        .padding(.vertical, displayMode == .compact ? 5 : 9)
         .background {
             RoundedRectangle(
                 cornerRadius: rowCornerRadius,
@@ -751,6 +750,7 @@ struct TaskEntityInspectorView: View {
     @EnvironmentObject private var organization: TaskOrganizationStore
 
     let entity: TaskEntityRecord
+    let onClose: () -> Void
 
     @State private var isConfirmingRemoval = false
 
@@ -778,6 +778,10 @@ struct TaskEntityInspectorView: View {
                             .padding(.vertical, 3)
                             .background(lifecycleColor.opacity(0.1), in: Capsule())
                     }
+
+                    Spacer(minLength: 8)
+
+                    TaskInspectorCloseButton(action: onClose)
                 }
 
                 Divider()
